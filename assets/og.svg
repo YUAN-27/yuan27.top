@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630">
+  <rect width="1200" height="630" fill="#1a1a1a"/>
+  <rect x="40" y="40" width="1120" height="550" rx="16" fill="none" stroke="#30363d" stroke-width="2"/>
+  <text x="80" y="250" font-family="monospace" font-size="80" fill="#3fb950">❯</text>
+  <text x="170" y="258" font-family="monospace" font-size="80" fill="#58a6ff">YUAN27.top</text>
+  <text x="80" y="390" font-family="monospace" font-size="34" fill="#e6e6e6">AI / Backend / Portfolio — a terminal-style personal site</text>
+  <text x="80" y="470" font-family="monospace" font-size="26" fill="#8b949e">Type 'help' to get started.</text>
+</svg>

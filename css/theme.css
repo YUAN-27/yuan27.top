@@ -1,0 +1,81 @@
+/* JetBrains Mono — self-hosted */
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('../fonts/jetbrains-mono-latin-400-normal.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('../fonts/jetbrains-mono-latin-700-normal.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Default theme: Claude Code dark */
+:root,
+[data-theme="claude"] {
+  --bg: #1a1a1a;
+  --bg-elevated: #161b22;
+  --border: #30363d;
+  --text: #e6e6e6;
+  --text-muted: #8b949e;
+  --input: #58a6ff;
+  --prompt: #3fb950;
+  --dir: #58a6ff;
+  --link: #58a6ff;
+  --error: #f85149;
+  --success: #3fb950;
+  --cursor: #e6e6e6;
+  --selection: rgba(88, 166, 255, 0.30);
+}
+
+[data-theme="light"] {
+  --bg: #ffffff;
+  --bg-elevated: #f6f8fa;
+  --border: #d0d7de;
+  --text: #1f2328;
+  --text-muted: #656d76;
+  --input: #0969da;
+  --prompt: #1a7f37;
+  --dir: #0969da;
+  --link: #0969da;
+  --error: #cf222e;
+  --success: #1a7f37;
+  --cursor: #1f2328;
+  --selection: rgba(9, 105, 218, 0.25);
+}
+
+[data-theme="matrix"] {
+  --bg: #000000;
+  --bg-elevated: #0a0a0a;
+  --border: #003b00;
+  --text: #00ff41;
+  --text-muted: #00b32d;
+  --input: #00ff41;
+  --prompt: #00ff41;
+  --dir: #00ff41;
+  --link: #00ff41;
+  --error: #ff5555;
+  --success: #00ff41;
+  --cursor: #00ff41;
+  --selection: rgba(0, 255, 65, 0.30);
+}
+
+[data-theme="dracula"] {
+  --bg: #282a36;
+  --bg-elevated: #21222c;
+  --border: #44475a;
+  --text: #f8f8f2;
+  --text-muted: #6272a4;
+  --input: #8be9fd;
+  --prompt: #50fa7b;
+  --dir: #8be9fd;
+  --link: #8be9fd;
+  --error: #ff5555;
+  --success: #50fa7b;
+  --cursor: #f8f8f2;
+  --selection: rgba(139, 233, 253, 0.30);
+}

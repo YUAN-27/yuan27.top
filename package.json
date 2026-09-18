@@ -1,0 +1,10 @@
+{
+  "name": "yuan27.top",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "YUAN27.top — a terminal-style personal portfolio (pure HTML/CSS/JS)",
+  "scripts": {
+    "test": "node --test tests/*.test.js"
+  }
+}

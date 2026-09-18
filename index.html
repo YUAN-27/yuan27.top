@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="claude">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>YUAN27 — AI / Backend / Portfolio</title>
+  <meta name="description" content="YUAN27 的个人技术作品集与博客 —— 一个以 Unix Terminal 为交互界面的个人网站。" />
+  <meta name="author" content="YUAN" />
+  <meta property="og:title" content="YUAN27 — AI / Backend / Portfolio" />
+  <meta property="og:description" content="一个以 Unix Terminal 为交互界面的个人 Portfolio / Blog。" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://yuan27.top/" />
+  <meta property="og:image" content="https://yuan27.top/assets/og.svg" />
+  <meta name="theme-color" content="#1a1a1a" />
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="css/theme.css" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <main class="terminal-window" id="terminal-window">
+    <header class="statusbar">
+      <span class="traffic-lights" aria-hidden="true">
+        <span class="dot dot-red"></span>
+        <span class="dot dot-yellow"></span>
+        <span class="dot dot-green"></span>
+      </span>
+      <span class="statusbar-title">YUAN27.top v1.0</span>
+      <span class="statusbar-status">[connected]</span>
+      <span class="statusbar-clock" id="clock" aria-label="current time">⏱ --:--:--</span>
+    </header>
+
+    <section class="output" id="output" role="log" aria-live="polite" aria-label="Terminal output">
+      <noscript>
+        <div class="line">YUAN27.top — 一个以 Unix Terminal 为交互界面的个人 Portfolio / Blog。</div>
+        <div class="line-error">需要启用 JavaScript 才能进入终端。请开启 JavaScript 后刷新。</div>
+      </noscript>
+    </section>
+
+    <div class="input-line">
+      <span class="prompt" aria-hidden="true">❯</span>
+      <input id="cmd-input" class="cmd-input" type="text"
+             autocomplete="off" autocapitalize="off" autocorrect="off"
+             spellcheck="false" enterkeyhint="send"
+             aria-label="Terminal command input" />
+      <span class="cursor" aria-hidden="true">█</span>
+    </div>
+
+    <nav class="mobile-toolbar" aria-label="Quick commands">
+      <button type="button" data-cmd="ls">ls</button>
+      <button type="button" data-cmd="help">help</button>
+      <button type="button" data-cmd="cd ..">cd ..</button>
+    </nav>
+  </main>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
