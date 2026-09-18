@@ -139,6 +139,7 @@ a.link:hover { text-decoration: none; }
 
 /* ---- responsive: mobile ---- */
 @media (max-width: 640px) {
+  .cmd-input { font-size: 16px; }
   body { font-size: 13px; align-items: stretch; }
   .terminal-window {
     width: 100%;
