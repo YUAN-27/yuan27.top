@@ -262,7 +262,7 @@ Use 'open github' to open the repository.`,
         'resume.pdf': {
           type: 'file',
           binary: true,
-          url: '/assets/resume.pdf',
+          url: 'assets/resume.pdf',
         },
       },
     },
