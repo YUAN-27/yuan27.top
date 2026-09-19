@@ -28,6 +28,7 @@ export function buildMenu(entries) {
       { label: 'Theme', type: 'setting', value: 'theme' },
     ]),
     group('Actions', [
+      { label: 'Open Terminal', type: 'action', value: 'open' },
       { label: 'Focus Terminal', type: 'action', value: 'focus' },
       { label: 'Reset Desktop', type: 'action', value: 'reset' },
     ]),
@@ -146,10 +147,11 @@ export function initTaskbar(el, opts = {}) {
 
   api.setCwd = (path) => { cwdEl.textContent = path || '/'; };
   api.setWindowState = (state = {}) => {
-    const label = state.minimized ? 'terminal · minimized'
-      : state.maximized ? 'terminal · maximized' : 'terminal';
+    const label = state.closed ? 'terminal · closed'
+      : state.minimized ? 'terminal · minimized'
+        : state.maximized ? 'terminal · maximized' : 'terminal';
     winBtn.textContent = label;
-    winBtn.classList.toggle('is-minimized', !!state.minimized);
+    winBtn.classList.toggle('is-minimized', !!state.minimized || !!state.closed);
   };
 
   // ---- events ----

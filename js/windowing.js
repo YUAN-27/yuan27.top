@@ -109,6 +109,7 @@ export function enableWindow(el, opts = {}) {
   const getState = () => ({
     minimized: el.classList.contains('minimized'),
     maximized: el.classList.contains('maximized'),
+    closed: el.classList.contains('closed'),
     floating: el.classList.contains('floating'),
   });
   const notify = () => { if (typeof onStateChange === 'function') onStateChange(getState()); };
@@ -129,6 +130,7 @@ export function enableWindow(el, opts = {}) {
         left: normal.left, top: normal.top, w: normal.w, h: normal.h,
         max: el.classList.contains('maximized'),
         min: el.classList.contains('minimized'),
+        closed: el.classList.contains('closed'),
       }));
     } catch { /* storage unavailable */ }
   };
@@ -181,6 +183,23 @@ export function enableWindow(el, opts = {}) {
     notify();
   }
 
+  // 关闭：隐藏窗口（内容由调用方决定是否丢弃）
+  function close() {
+    mode = null;
+    dir = '';
+    el.classList.remove('window-drag', 'window-moving');
+    document.body.classList.remove('no-select');
+    el.classList.add('closed');
+    saveState();
+    notify();
+  }
+
+  // 重新打开（内容重置由调用方处理）
+  function reopen() {
+    el.classList.remove('closed');
+    notify();
+  }
+
   function restoreFromState() {
     const s = loadState();
     if (!s) return;
@@ -197,7 +216,8 @@ export function enableWindow(el, opts = {}) {
     g.top = c.top;
     normal = g;
     applyGeom(g);
-    if (s.max) maximize();
+    if (s.closed) close();
+    else if (s.max) maximize();
     else if (s.min) minimize();
   }
 
@@ -205,7 +225,7 @@ export function enableWindow(el, opts = {}) {
     if (on === active) return;
     active = on;
     if (!on) {
-      el.classList.remove('floating', 'maximized', 'minimized', 'window-drag');
+      el.classList.remove('floating', 'maximized', 'minimized', 'closed', 'window-drag');
       clearGeom();
       setCursor('');
       document.body.classList.remove('no-select');
@@ -333,6 +353,7 @@ export function enableWindow(el, opts = {}) {
       if (action === 'maximize') toggleMaximize();
       else if (action === 'minimize') minimize();
       else if (action === 'reset') reset();
+      else if (action === 'close') close();
     });
   });
 
@@ -345,7 +366,7 @@ export function enableWindow(el, opts = {}) {
   if (active) restoreFromState();
 
   return {
-    reset, maximize, restore, minimize, unminimize, toggleMaximize,
+    reset, maximize, restore, minimize, unminimize, toggleMaximize, close, reopen,
     isMinimized: () => el.classList.contains('minimized'),
     getState,
   };

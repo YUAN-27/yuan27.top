@@ -19,7 +19,7 @@ test('buildMenu: every item points at something real', () => {
       if (item.type === 'entry') assert.ok(ids.has(item.entry.id), `未知入口: ${item.entry.id}`);
       if (item.type === 'command') assert.ok(commandNames.includes(item.value), `未知命令: ${item.value}`);
       if (item.type === 'setting') assert.ok(['motion', 'sound', 'theme'].includes(item.value), item.value);
-      if (item.type === 'action') assert.ok(['focus', 'reset'].includes(item.value), item.value);
+      if (item.type === 'action') assert.ok(['open', 'focus', 'reset'].includes(item.value), item.value);
     }
   }
 });
@@ -56,4 +56,13 @@ test('settingCommands: toggles motion/sound and cycles themes', () => {
 
 test('taskbar is desktop-only, same breakpoint as the desktop layer', () => {
   assert.equal(TASKBAR_MIN_WIDTH, 641);
+});
+
+test('start menu can reopen a closed terminal', () => {
+  const actions = buildMenu(ENTRIES)
+    .find((g) => g.title === 'Actions')
+    .items.map((i) => i.value);
+  assert.ok(actions.includes('open'), '缺少 Open Terminal 动作');
+  assert.ok(actions.includes('focus'));
+  assert.ok(actions.includes('reset'));
 });

@@ -148,11 +148,15 @@ taskbar = initTaskbar(document.getElementById('taskbar'), {
     for (const cmd of itemCommands(item, menuState())) submitLine(cmd);
   },
   onAction(action) {
-    if (action === 'focus') {
+    if (action === 'open') {
+      openTerminalFresh();
+    } else if (action === 'focus') {
+      if (win.getState().closed) win.reopen();
       if (win.isMinimized()) win.unminimize();
       win.reset();
       inputEl.focus();
     } else if (action === 'reset') {
+      if (win.getState().closed) win.reopen();
       win.reset();
       submitLine('motion on');
       submitLine('theme claude');
@@ -160,7 +164,8 @@ taskbar = initTaskbar(document.getElementById('taskbar'), {
     }
   },
   onWindowClick() {
-    if (win.isMinimized()) win.unminimize();
+    if (win.getState().closed) openTerminalFresh();
+    else if (win.isMinimized()) win.unminimize();
     else inputEl.focus();
   },
 });
@@ -192,13 +197,10 @@ function startClock() {
   setInterval(tick, 1000);
 }
 
-// ---- boot sequence ----
-async function boot() {
-  initTheme();
-  startClock();
-
+// ---- boot screen（可重复播放：重新打开终端时也会走这里）----
+async function printBootScreen() {
   const logoLines = frameLogo(LOGO);
-  // 每次进入（含刷新）都逐行打印；点击/按键可跳过
+  // 每次进入（含刷新/重开）都逐行打印；点击/按键可跳过
   const d = (ms) => (skipBoot ? 0 : ms);
 
   await term.printText(BOOT_LINES, { className: 'line-muted', lineDelay: d(150) });
@@ -207,6 +209,25 @@ async function boot() {
   await term.printText([''], { lineDelay: 0 });
   await term.printText(WELCOME, { lineDelay: d(120) });
   await term.printText([''], { lineDelay: 0 });
+}
+
+// 关闭后重新打开 = 全新会话：清屏 + 回根目录 + 重放启动画面（命令历史保留）
+async function openTerminalFresh() {
+  win.reopen();
+  term.clear();
+  shell.setCwd('/');
+  if (taskbar) taskbar.setCwd('/');
+  inputEl.focus();
+  await printBootScreen();
+}
+
+// ---- boot sequence ----
+async function boot() {
+  initTheme();
+  startClock();
+
+  // 关闭状态下不播放启动动画（重新打开时再播）
+  if (!win.getState().closed) await printBootScreen();
 
   booting = false;
 

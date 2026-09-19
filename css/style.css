@@ -264,6 +264,7 @@ a.link:hover { text-decoration: none; }
 /* ---- window management (desktop) ---- */
 .terminal-window.floating { position: fixed; margin: 0; }
 .terminal-window.minimized { display: none; }
+.terminal-window.closed { display: none; }
 .terminal-window.maximized {
   border: none;
   border-radius: 0;
