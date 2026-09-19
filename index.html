@@ -24,10 +24,10 @@
 <body>
   <main class="terminal-window" id="terminal-window">
     <header class="statusbar">
-      <span class="traffic-lights" aria-hidden="true">
-        <span class="dot dot-red"></span>
-        <span class="dot dot-yellow"></span>
-        <span class="dot dot-green"></span>
+      <span class="traffic-lights">
+        <button type="button" class="dot dot-red" data-window-action="reset" aria-label="复位窗口到居中" title="复位到居中"></button>
+        <button type="button" class="dot dot-yellow" data-window-action="minimize" aria-label="最小化窗口" title="最小化"></button>
+        <button type="button" class="dot dot-green" data-window-action="maximize" aria-label="最大化或还原窗口" title="最大化 / 还原"></button>
       </span>
       <span class="statusbar-title">YUAN27.top v1.0</span>
       <span class="statusbar-status">[connected]</span>
@@ -56,6 +56,8 @@
       <button type="button" data-cmd="cd ..">cd ..</button>
     </nav>
   </main>
+
+  <button type="button" class="window-dock" id="window-dock" hidden>❯ YUAN27.top</button>
 
   <script type="module" src="js/main.js"></script>
 </body>

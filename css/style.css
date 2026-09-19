@@ -47,9 +47,20 @@ body {
   font-size: 12px;
   color: var(--text-muted);
   user-select: none;
+  cursor: grab;
 }
 .traffic-lights { display: flex; gap: 6px; }
-.dot { width: 12px; height: 12px; border-radius: 50%; }
+.dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: filter 0.12s ease;
+}
+.dot:hover { filter: brightness(1.25); }
+.dot:focus-visible { outline: 2px solid var(--input); outline-offset: 2px; }
 .dot-red { background: #ff5f56; }
 .dot-yellow { background: #ffbd2e; }
 .dot-green { background: #27c93f; }
@@ -134,6 +145,50 @@ a.link:hover { text-decoration: none; }
   50.01%, 100% { opacity: 0; }
 }
 
+/* ---- window management (desktop) ---- */
+.terminal-window.floating { position: fixed; margin: 0; }
+.terminal-window.minimized { display: none; }
+.terminal-window.maximized {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+body.no-select { user-select: none; }
+
+/* force the right cursor over the whole window while hovering edges / dragging */
+.terminal-window.cursor-n, .terminal-window.cursor-n *,
+.terminal-window.cursor-s, .terminal-window.cursor-s * { cursor: ns-resize; }
+.terminal-window.cursor-e, .terminal-window.cursor-e *,
+.terminal-window.cursor-w, .terminal-window.cursor-w * { cursor: ew-resize; }
+.terminal-window.cursor-ne, .terminal-window.cursor-ne *,
+.terminal-window.cursor-sw, .terminal-window.cursor-sw * { cursor: nesw-resize; }
+.terminal-window.cursor-nw, .terminal-window.cursor-nw *,
+.terminal-window.cursor-se, .terminal-window.cursor-se * { cursor: nwse-resize; }
+.terminal-window.window-drag, .terminal-window.window-drag * { cursor: grabbing; }
+
+/* minimized dock chip */
+.window-dock {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 50;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 14px;
+  background: var(--bg-elevated);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.window-dock[hidden] { display: none; }
+.window-dock:hover { border-color: var(--input); }
+.window-dock:focus-visible { outline: 2px solid var(--input); outline-offset: 2px; }
+
 /* ---- mobile quick toolbar (hidden on desktop) ---- */
 .mobile-toolbar { display: none; }
 
@@ -176,6 +231,7 @@ a.link:hover { text-decoration: none; }
     cursor: pointer;
   }
   .mobile-toolbar button:active { background: var(--border); }
+  .window-dock { display: none !important; }
 }
 
 /* ---- reduced motion ---- */

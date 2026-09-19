@@ -7,6 +7,7 @@ import { resolve as resolvePath } from './fs.js';
 import { LOGO, WELCOME } from './content.js';
 import { commands, commandNames } from './commands.js';
 import { parse } from './parser.js';
+import { enableWindow } from './windowing.js';
 
 const outputEl = document.getElementById('output');
 const inputEl = document.getElementById('cmd-input');
@@ -108,6 +109,13 @@ inputEl.addEventListener('input', syncInputSize);
 // ---- focus & skip ---- 
 windowEl.addEventListener('click', () => inputEl.focus());
 outputEl.addEventListener('click', () => { term.skip = true; });
+
+// ---- window management: drag / resize / maximize / minimize / reset (desktop only) ----
+enableWindow(windowEl, {
+  handle: windowEl.querySelector('.statusbar'),
+  dock: document.getElementById('window-dock'),
+  storageKey: 'yuan27.window.v1',
+});
 
 // ---- mobile quick buttons ----
 document.querySelectorAll('.mobile-toolbar button').forEach((btn) => {
