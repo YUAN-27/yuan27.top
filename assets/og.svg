@@ -1,14 +1,89 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
-  <rect width="1200" height="630" fill="#1a1a1a"/>
-  <rect x="40" y="40" width="1120" height="550" rx="16" fill="#161b22" stroke="#30363d" stroke-width="2"/>
-  <circle cx="82" cy="82" r="9" fill="#ff5f56"/>
-  <circle cx="112" cy="82" r="9" fill="#ffbd2e"/>
-  <circle cx="142" cy="82" r="9" fill="#27c93f"/>
-  <text x="80" y="235" font-family="JetBrains Mono" font-size="76" fill="#3fb950">❯</text>
-  <text x="165" y="243" font-family="JetBrains Mono" font-size="76" font-weight="bold" fill="#58a6ff">YUAN27.top</text>
-  <text x="82" y="345" font-family="JetBrains Mono" font-size="34" fill="#e6e6e6">AI / Agent / Backend Development</text>
-  <text x="82" y="412" font-family="JetBrains Mono" font-size="28" fill="#8b949e">A terminal-style personal portfolio</text>
-  <text x="82" y="512" font-family="JetBrains Mono" font-size="30" fill="#3fb950">❯</text>
-  <text x="118" y="512" font-family="JetBrains Mono" font-size="30" fill="#e6e6e6">help</text>
-  <rect x="192" y="490" width="17" height="30" fill="#e6e6e6"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630"
+     font-family="'JetBrains Mono','Cascadia Mono',Consolas,'Courier New',monospace">
+  <!--════════════════════════════════════════════════════════════════════
+    OG 分享图 · 终端美学 · 1200x630 · yuan27.top
+    ─────────────────────────────────────────────────────────────────────
+    ★ 自定义项（只改 <style> 与下方标注处，图形无需动）：
+      ① 大名字 NAME        → 搜索 class="brand"（默认 YUAN27）
+      ② 名字高亮段          → tspan class="accent"（默认 "27" 蓝色）
+      ③ 标语 TAGLINE       → class="tagline"（默认 AI / Backend / Portfolio）
+      ④ 右侧注释 COMMENT   → class="comment"（默认 # unix-terminal portfolio）
+      ⑤ 域名 DOMAIN        → class="domain"（默认 yuan27.top）
+      ⑥ 窗口标题           → class="win-title"（默认 yuan27.top — zsh）
+      ⑦ 配色：全部集中在 <style>，改一处全局生效
+              bg 页面底色 / surface 终端窗口底 / border 边框
+              text 主文字 / muted 次要文字 / green 提示符 / blue 强调色
+      ⑧ 红绿灯颜色         → 搜索 class="light-*"
+    ════════════════════════════════════════════════════════════════════-->
+  <style>
+    .bg        { fill: #1a1a1a; }              /* ⑦ 页面底色 */
+    .surface   { fill: #161b22; }              /* ⑦ 终端窗口底色 */
+    .stroke    { stroke: #30363d; }            /* ⑦ 边框 */
+    .text      { fill: #e6e6e6; }              /* ⑦ 主文字 */
+    .muted     { fill: #8b949e; }              /* ⑦ 次要文字 */
+    .green     { stroke: #3fb950; }            /* ⑦ 提示符 ❯ */
+    .accent    { fill: #58a6ff; }              /* ⑦ 强调色（名字高亮/光标条） */
+    .cursor    { fill: #e6e6e6; }              /* ⑦ 块状光标 */
+    .light-r   { fill: #ff5f57; }              /* ⑧ 红绿灯·红 */
+    .light-y   { fill: #febc2e; }              /* ⑧ 红绿灯·黄 */
+    .light-g   { fill: #28c840; }              /* ⑧ 红绿灯·绿 */
+  </style>
+
+  <defs>
+    <!-- 底纹：极淡的点阵网格 -->
+    <pattern id="dots" width="28" height="28" patternUnits="userSpaceOnUse">
+      <circle cx="1.5" cy="1.5" r="1.5" fill="#ffffff" opacity="0.035"/>
+    </pattern>
+    <!-- 终端窗后方的微弱绿色光晕 -->
+    <radialGradient id="glow" cx="0.5" cy="0.42" r="0.75">
+      <stop offset="0"    stop-color="#3fb950" stop-opacity="0.055"/>
+      <stop offset="0.55" stop-color="#3fb950" stop-opacity="0.015"/>
+      <stop offset="1"    stop-color="#3fb950" stop-opacity="0"/>
+    </radialGradient>
+    <!-- 窗口投影 -->
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="14" stdDeviation="24" flood-color="#000000" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+
+  <!-- 背景 -->
+  <rect class="bg" width="1200" height="630"/>
+  <rect width="1200" height="630" fill="url(#dots)"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+
+  <!-- ── 终端窗口 ─────────────────────────────────────────────── -->
+  <g filter="url(#shadow)">
+    <rect class="surface stroke" stroke-width="2" x="70" y="70" width="1060" height="460" rx="18"/>
+    <!-- 标题栏分隔线 -->
+    <line class="stroke" stroke-width="2" x1="71" y1="128" x2="1129" y2="128"/>
+  </g>
+  <!-- 红绿灯 -->
+  <circle class="light-r" cx="104" cy="99" r="7"/>
+  <circle class="light-y" cx="134" cy="99" r="7"/>
+  <circle class="light-g" cx="164" cy="99" r="7"/>
+  <!-- ⑥ 窗口标题 -->
+  <text class="muted" x="600" y="107" font-size="22" text-anchor="middle" letter-spacing="1">yuan27.top — zsh</text>
+
+  <!-- ── 窗口内容 ─────────────────────────────────────────────── -->
+  <!-- 第 1 行：❯ whoami -->
+  <path class="green" d="M120 180 L132 192.5 L120 205" fill="none" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text class="text" x="152" y="204" font-size="34">whoami</text>
+
+  <!-- 第 2 行：① 大名字 NAME + ② 高亮段 -->
+  <text x="120" y="318" font-size="120" font-weight="700"><tspan class="text">YUAN</tspan><tspan class="accent">27</tspan></text>
+  <!-- ④ 右侧注释 COMMENT -->
+  <text class="muted" x="1080" y="310" font-size="30" text-anchor="end"># unix-terminal portfolio</text>
+
+  <!-- 第 3 行：❯ cat tagline.txt -->
+  <path class="green" d="M120 370 L131 381 L120 392" fill="none" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text class="text" x="150" y="392" font-size="30">cat tagline.txt</text>
+
+  <!-- 第 4 行：③ 标语 TAGLINE（斜杠为次要色，词为主色） -->
+  <text x="120" y="456" font-size="40"><tspan class="text">AI</tspan><tspan class="muted"> / </tspan><tspan class="text">Backend</tspan><tspan class="muted"> / </tspan><tspan class="text">Portfolio</tspan></text>
+
+  <!-- ── 卡片底部（窗口外）────────────────────────────────────── -->
+  <path class="green" d="M120 562 L132 574.5 L120 587" fill="none" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect class="cursor" x="152" y="560" width="22" height="34" rx="3"/>
+  <!-- ⑤ 域名 DOMAIN -->
+  <text class="muted" x="1080" y="586" font-size="28" text-anchor="end" letter-spacing="1">yuan27.top</text>
 </svg>
