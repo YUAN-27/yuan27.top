@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ENTRIES } from '../js/content.js';
-import { entryCommands, DESKTOP_BREAKPOINT } from '../js/desktop.js';
+import { entryCommands, DESKTOP_MIN_WIDTH, DOUBLE_CLICK_MS } from '../js/desktop.js';
 import { getNode } from '../js/fs.js';
 import { commandNames } from '../js/commands.js';
 
@@ -41,7 +41,8 @@ test('entryCommands: folders cd + ls, others run their command', () => {
   assert.deepEqual(entryCommands({}), []);
 });
 
-test('desktop layer breakpoint matches the CSS mobile rule', () => {
-  // 硬规则 docs 1.3.1：≤640px 不渲染桌面入口。
-  assert.equal(DESKTOP_BREAKPOINT, 640);
+test('desktop layer is desktop-only and matches the CSS breakpoint', () => {
+  // 硬规则 docs 1.3.1：≤640px 不渲染桌面入口；CSS 用 max-width:640 / min-width:641。
+  assert.equal(DESKTOP_MIN_WIDTH, 641);
+  assert.ok(DOUBLE_CLICK_MS >= 300 && DOUBLE_CLICK_MS <= 700, `双击窗口不合理: ${DOUBLE_CLICK_MS}`);
 });

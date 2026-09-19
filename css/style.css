@@ -5,6 +5,7 @@
   --z-icons: 10;
   --z-window: 100;
   --z-menu: 200;
+  --desktop-rail: 0px;
 }
 
 html, body { height: 100%; }
@@ -238,6 +239,18 @@ a.link:hover { text-decoration: none; }
   color: var(--text);
 }
 .desktop-icon:focus-visible { outline: 2px solid var(--input); outline-offset: 1px; }
+
+/* 桌面端为图标列留出左侧栏，避免窗口默认位置盖住图标（docs 1.3.1） */
+@media (min-width: 641px) {
+  :root { --desktop-rail: 190px; }
+  body { padding-left: var(--desktop-rail); }
+}
+
+/* 拖动/缩放中降低合成成本 */
+.terminal-window.window-moving {
+  will-change: transform, left, top, width, height;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
+}
 
 /* ---- window management (desktop) ---- */
 .terminal-window.floating { position: fixed; margin: 0; }

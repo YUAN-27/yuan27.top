@@ -48,7 +48,7 @@
 - 个人贡献
 - 状态（进行中 / 已完成 / 归档）
 
-每个目录下的 `github` 链接文件目前是占位 URL（`https://github.com/yuan27/...`），需要真实仓库地址；如有 Demo / 截图也一并提供。
+每个目录下的 `github` 链接文件目前是占位 URL（仓库名占位，账号已用 `YUAN-27`），需要真实仓库地址；如有 Demo / 截图也一并提供。
 
 > 注：目录名已按路线图对齐（`ai-agent` → `agent`，`cpu` → `mips`），`backend` 与 `experience.md` 作为额外内容保留，如需删除请告知。
 
@@ -65,9 +65,9 @@
 
 | 项 | 当前占位 | 需要你提供 |
 |---|---|---|
-| `links.md` | `yuan@yuan27.top` / `github.com/yuan27` | 真实邮箱、GitHub 等 |
+| `links.md` | `yuan@yuan27.top` / `github.com/YUAN-27` | 真实邮箱、GitHub 等 |
 | `email` 链接文件 | `mailto:yuan@yuan27.top` | 真实邮箱 |
-| `github` 链接文件 | `https://github.com/yuan27` | 真实主页 |
+| `github` 链接文件 | `https://github.com/YUAN-27` | 真实主页 |
 
 ---
 

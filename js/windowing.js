@@ -77,6 +77,10 @@ export function enableWindow(el, opts = {}) {
   let dir = '';      // resize direction
   let start = null;  // { x, y, left, top, w, h }
   let normal = null; // 非最大化时的几何 { left, top, w, h }
+  let pointer = null;          // 最新指针坐标（每帧只应用一次）
+  let moveRaf = 0;
+  let dragBase = { left: 0, top: 0 }; // 拖动开始时的 left/top
+  let dragDelta = { dx: 0, dy: 0 };
 
   const viewport = () => ({ width: window.innerWidth, height: window.innerHeight });
   const readRect = () => {
@@ -85,6 +89,7 @@ export function enableWindow(el, opts = {}) {
   };
   const applyGeom = (g) => {
     el.classList.add('floating');
+    el.style.transform = '';
     el.style.left = Math.round(g.left) + 'px';
     el.style.top = Math.round(g.top) + 'px';
     el.style.width = Math.round(g.w) + 'px';
@@ -92,6 +97,7 @@ export function enableWindow(el, opts = {}) {
   };
   const clearGeom = () => {
     el.style.left = el.style.top = el.style.width = el.style.height = '';
+    el.style.transform = '';
   };
 
   function setCursor(d) {
@@ -220,7 +226,11 @@ export function enableWindow(el, opts = {}) {
     if (!el.classList.contains('floating')) { normal = readRect(); applyGeom(normal); }
     if (mode === 'drag') { el.classList.add('window-drag'); setCursor(''); }
     else setCursor(dir);
+    el.classList.add('window-moving');
     start = { x: e.clientX, y: e.clientY, ...readRect() };
+    dragBase = { left: parseFloat(el.style.left) || 0, top: parseFloat(el.style.top) || 0 };
+    dragDelta = { dx: 0, dy: 0 };
+    pointer = null;
     el.setPointerCapture(e.pointerId);
     document.body.classList.add('no-select');
     e.preventDefault();
@@ -233,15 +243,24 @@ export function enableWindow(el, opts = {}) {
       setCursor(hitDir(el.getBoundingClientRect(), e.clientX, e.clientY, RESIZE_BORDER));
       return;
     }
-    const dx = e.clientX - start.x;
-    const dy = e.clientY - start.y;
+    // 合并到下一帧，避免 pointermove 频率高于帧率时重复布局/重绘
+    pointer = { x: e.clientX, y: e.clientY };
+    if (!moveRaf) moveRaf = requestAnimationFrame(applyMove);
+  }
+
+  function applyMove() {
+    moveRaf = 0;
+    if (!mode || !pointer) return;
+    const dx = pointer.x - start.x;
+    const dy = pointer.y - start.y;
     if (mode === 'drag') {
       const c = clampPosition(
-        { left: start.left + dx, top: start.top + dy, w: start.w, h: start.h },
+        { left: dragBase.left + dx, top: dragBase.top + dy, w: start.w, h: start.h },
         viewport(), minVisible, titleHeight,
       );
-      el.style.left = Math.round(c.left) + 'px';
-      el.style.top = Math.round(c.top) + 'px';
+      dragDelta = { dx: c.left - dragBase.left, dy: c.top - dragBase.top };
+      // transform 只触发合成，不重排不重绘
+      el.style.transform = `translate3d(${Math.round(dragDelta.dx)}px, ${Math.round(dragDelta.dy)}px, 0)`;
     } else {
       applyGeom(resizeRect(start, dir, dx, dy, minW, minH));
     }
@@ -249,13 +268,26 @@ export function enableWindow(el, opts = {}) {
 
   function onPointerUp(e) {
     if (!active || !mode) return;
+    const wasDrag = mode === 'drag';
     mode = null;
     dir = '';
-    el.classList.remove('window-drag');
+    if (moveRaf) { cancelAnimationFrame(moveRaf); moveRaf = 0; }
+    if (wasDrag) {
+      // 把 transform 提交回 left/top（applyGeom 会清掉 transform）
+      applyGeom({
+        left: dragBase.left + dragDelta.dx,
+        top: dragBase.top + dragDelta.dy,
+        w: start.w,
+        h: start.h,
+      });
+    }
+    el.classList.remove('window-drag', 'window-moving');
     setCursor('');
     document.body.classList.remove('no-select');
     try { el.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
     if (!el.classList.contains('maximized') && !el.classList.contains('minimized')) normal = readRect();
+    pointer = null;
+    dragDelta = { dx: 0, dy: 0 };
     saveState();
   }
 

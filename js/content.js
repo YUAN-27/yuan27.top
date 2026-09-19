@@ -217,7 +217,7 @@ Use 'open github' to open the repository.`,
             github: {
               type: 'file',
               link: true,
-              url: 'https://github.com/yuan27/ai-agent',
+              url: 'https://github.com/YUAN-27/agent',
             },
           },
         },
@@ -239,7 +239,7 @@ Use 'open github' to open the repository.`,
             github: {
               type: 'file',
               link: true,
-              url: 'https://github.com/yuan27/rag',
+              url: 'https://github.com/YUAN-27/rag',
             },
           },
         },
@@ -261,7 +261,7 @@ Use 'open github' to open the repository.`,
             github: {
               type: 'file',
               link: true,
-              url: 'https://github.com/yuan27/backend',
+              url: 'https://github.com/YUAN-27/backend',
             },
           },
         },
@@ -283,7 +283,7 @@ Use 'open github' to open the repository.`,
             github: {
               type: 'file',
               link: true,
-              url: 'https://github.com/yuan27/cpu',
+              url: 'https://github.com/YUAN-27/mips',
             },
           },
         },
@@ -304,7 +304,7 @@ Use 'open github' to open the repository.`,
             github: {
               type: 'file',
               link: true,
-              url: 'https://github.com/yuan27/yuan27.top',
+              url: 'https://github.com/YUAN-27/yuan27.top',
             },
           },
         },
@@ -371,7 +371,7 @@ Use 'open github' to open the repository.`,
           content: `# Contact
 
 Email:  yuan@yuan27.top
-GitHub: https://github.com/yuan27
+GitHub: https://github.com/YUAN-27
 
 （← 替换此处：联系方式）
 Use 'open email' or 'open github' to follow the links.`,
@@ -384,7 +384,7 @@ Use 'open email' or 'open github' to follow the links.`,
         github: {
           type: 'file',
           link: true,
-          url: 'https://github.com/yuan27',
+          url: 'https://github.com/YUAN-27',
         },
       },
     },

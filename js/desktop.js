@@ -4,8 +4,12 @@
 //  不产生"存在但不可达"的界面元素。图标只负责唤起终端，不做第二套内容系统。
 // ============================================================
 
-// 必须与 css/style.css 中 `@media (max-width: 640px)` 保持一致。
-export const DESKTOP_BREAKPOINT = 640;
+// 必须与 css/style.css 保持一致：桌面端 = `@media (min-width: 641px)`，
+// 移动端 = `@media (max-width: 640px)`。
+export const DESKTOP_MIN_WIDTH = 641;
+
+// 双击判定窗口（毫秒）。不依赖 dblclick 事件，避免焦点变动导致丢失。
+export const DOUBLE_CLICK_MS = 500;
 
 const ICONS = {
   folder:
@@ -29,10 +33,11 @@ export function entryCommands(entry) {
 }
 
 export function initDesktop(el, entries, opts = {}) {
-  const { open, refocus, breakpoint = DESKTOP_BREAKPOINT } = opts;
+  const { open, refocus, breakpoint = DESKTOP_MIN_WIDTH } = opts;
   if (!el) return { select() {}, destroy() {} };
 
-  const mq = window.matchMedia(`(max-width: ${breakpoint}px)`);
+  // 与 CSS 一致：≥641px 才渲染（移动端完全不渲染）
+  const mq = window.matchMedia(`(min-width: ${breakpoint}px)`);
   let mounted = false;
 
   function select(id) {
@@ -55,16 +60,22 @@ export function initDesktop(el, entries, opts = {}) {
       btn.innerHTML =
         `<span class="desktop-icon-glyph">${ICONS[entry.kind] || ICONS.file}</span>` +
         `<span class="desktop-icon-label">${entry.label}</span>`;
+      let lastClick = 0;
       btn.addEventListener('click', (e) => {
         if (e.detail === 0) { // 键盘触发的 click（Enter / Space）
           if (typeof open === 'function') open(entry);
           return;
         }
+        // 自己判定双击：click 里 refocus() 改变焦点后，某些浏览器不再派发 dblclick
+        const now = Date.now();
+        if (now - lastClick < DOUBLE_CLICK_MS) {
+          lastClick = 0;
+          if (typeof open === 'function') open(entry);
+          return;
+        }
+        lastClick = now;
         select(entry.id); // 鼠标单击 = 选中，且不抢走终端输入焦点
         if (typeof refocus === 'function') refocus();
-      });
-      btn.addEventListener('dblclick', () => {
-        if (typeof open === 'function') open(entry);
       });
       el.appendChild(btn);
     }
@@ -73,15 +84,15 @@ export function initDesktop(el, entries, opts = {}) {
 
   function apply() {
     if (mq.matches) {
+      if (!mounted) render();
+    } else {
       // 移动端：不渲染任何桌面入口
       if (mounted) { el.innerHTML = ''; mounted = false; }
-    } else if (!mounted) {
-      render();
     }
   }
 
   function onDocClick(e) {
-    if (mq.matches) return;
+    if (!mq.matches) return;
     if (!el.contains(e.target)) select(null);
   }
   document.addEventListener('click', onDocClick);
