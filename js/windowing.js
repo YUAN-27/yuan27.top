@@ -53,9 +53,13 @@ export function resizeRect(start, dir, dx, dy, minW = MIN_W, minH = MIN_H) {
 }
 
 // 拖动时夹取位置：水平至少留 minVisible px，标题栏保持在视口内。
-export function clampPosition(rect, viewport, minVisible = 120, titleH = 40) {
-  const left = Math.min(Math.max(rect.left, minVisible - rect.w), viewport.width - minVisible);
-  const top = Math.min(Math.max(rect.top, 0), viewport.height - titleH);
+// minLeft：窗口左边界的硬下限（默认 -Infinity = 不限制）；桌面端传入图标栏宽度，
+// 使窗口永远不会盖住图标栏。
+export function clampPosition(rect, viewport, minVisible = 120, titleH = 40, minLeft = -Infinity) {
+  const low = Math.max(minVisible - rect.w, minLeft);
+  const high = Math.max(low, viewport.width - minVisible);
+  const left = Math.min(Math.max(rect.left, low), high);
+  const top = Math.min(Math.max(rect.top, 0), Math.max(0, viewport.height - titleH));
   return { left, top };
 }
 
@@ -69,6 +73,7 @@ export function enableWindow(el, opts = {}) {
     breakpoint = 640,
     titleHeight = 40,
     minVisible = 120,
+    minLeft = -Infinity,
   } = opts;
 
   const mq = window.matchMedia(`(max-width: ${breakpoint}px)`);
@@ -174,7 +179,7 @@ export function enableWindow(el, opts = {}) {
       left: s.left || 0,
       top: s.top || 0,
     };
-    const c = clampPosition(g, vp, minVisible, titleHeight);
+    const c = clampPosition(g, vp, minVisible, titleHeight, minLeft);
     g.left = c.left;
     g.top = c.top;
     normal = g;
@@ -218,9 +223,10 @@ export function enableWindow(el, opts = {}) {
       const frac = vp.width ? e.clientX / vp.width : 0.5;
       restore();
       const r = readRect();
-      const g = { left: e.clientX - r.w * frac, top: Math.max(0, e.clientY - 20), w: r.w, h: r.h };
-      normal = g;
-      applyGeom(g);
+      const cand = { left: e.clientX - r.w * frac, top: Math.max(0, e.clientY - 20), w: r.w, h: r.h };
+      const c = clampPosition(cand, vp, minVisible, titleHeight, minLeft);
+      normal = { ...cand, left: c.left, top: c.top };
+      applyGeom(normal);
     }
 
     if (!el.classList.contains('floating')) { normal = readRect(); applyGeom(normal); }
@@ -256,7 +262,7 @@ export function enableWindow(el, opts = {}) {
     if (mode === 'drag') {
       const c = clampPosition(
         { left: dragBase.left + dx, top: dragBase.top + dy, w: start.w, h: start.h },
-        viewport(), minVisible, titleHeight,
+        viewport(), minVisible, titleHeight, minLeft,
       );
       dragDelta = { dx: c.left - dragBase.left, dy: c.top - dragBase.top };
       // transform 只触发合成，不重排不重绘

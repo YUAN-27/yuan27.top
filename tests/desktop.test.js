@@ -1,7 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ENTRIES } from '../js/content.js';
-import { entryCommands, DESKTOP_MIN_WIDTH, DOUBLE_CLICK_MS } from '../js/desktop.js';
+import {
+  entryCommands, makeClickHandler, makeOpener,
+  DESKTOP_MIN_WIDTH, DOUBLE_CLICK_MS,
+  DESKTOP_RAIL_WIDTH, ICON_COLUMN_LEFT, ICON_COLUMN_WIDTH,
+} from '../js/desktop.js';
 import { getNode } from '../js/fs.js';
 import { commandNames } from '../js/commands.js';
 
@@ -45,4 +49,58 @@ test('desktop layer is desktop-only and matches the CSS breakpoint', () => {
   // 硬规则 docs 1.3.1：≤640px 不渲染桌面入口；CSS 用 max-width:640 / min-width:641。
   assert.equal(DESKTOP_MIN_WIDTH, 641);
   assert.ok(DOUBLE_CLICK_MS >= 300 && DOUBLE_CLICK_MS <= 700, `双击窗口不合理: ${DOUBLE_CLICK_MS}`);
+});
+
+test('the left rail is wide enough to hold the whole icon column', () => {
+  const right = ICON_COLUMN_LEFT + ICON_COLUMN_WIDTH;
+  assert.ok(DESKTOP_RAIL_WIDTH >= right, `rail ${DESKTOP_RAIL_WIDTH} < 图标列右边界 ${right}`);
+});
+
+test('opening a folder entry cds into it and lists subfolders + files', () => {
+  const calls = [];
+  const open = makeOpener({
+    restore: () => calls.push('restore'),
+    focus: () => calls.push('focus'),
+    run: (cmd) => calls.push(cmd),
+  });
+  open(ENTRIES.find((e) => e.id === 'about'));
+  assert.deepEqual(calls, ['restore', 'focus', 'cd /about', 'ls']);
+
+  calls.length = 0;
+  open(ENTRIES.find((e) => e.id === 'projects'));
+  assert.deepEqual(calls, ['restore', 'focus', 'cd /projects', 'ls']);
+
+  calls.length = 0;
+  open(ENTRIES.find((e) => e.id === 'resume'));
+  assert.deepEqual(calls, ['restore', 'focus', 'resume']);
+});
+
+test('double-click opens; two slow clicks just select', () => {
+  let t = 1000;
+  const events = [];
+  const click = makeClickHandler({
+    open: () => events.push('open'),
+    select: () => events.push('select'),
+    refocus: () => events.push('focus'),
+    now: () => t,
+  });
+
+  click({ detail: 1 }); // 第一次单击 -> 选中
+  assert.deepEqual(events, ['select', 'focus']);
+
+  t += 200; // 500ms 内 -> 双击
+  click({ detail: 2 });
+  assert.deepEqual(events, ['select', 'focus', 'open']);
+
+  events.length = 0;
+  t += 5000; click({ detail: 1 }); // 两次慢点击 -> 只选中，不打开
+  t += 5000; click({ detail: 1 });
+  assert.deepEqual(events, ['select', 'focus', 'select', 'focus']);
+});
+
+test('keyboard activation (detail 0) opens immediately', () => {
+  const events = [];
+  const click = makeClickHandler({ open: () => events.push('open'), select: () => events.push('select') });
+  click({ detail: 0 });
+  assert.deepEqual(events, ['open']);
 });

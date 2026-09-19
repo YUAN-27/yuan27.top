@@ -11,6 +11,12 @@ export const DESKTOP_MIN_WIDTH = 641;
 // 双击判定窗口（毫秒）。不依赖 dblclick 事件，避免焦点变动导致丢失。
 export const DOUBLE_CLICK_MS = 500;
 
+// 左侧图标栏：宽度必须与 css 的 `--desktop-rail` 一致；
+// 图标列的“右边界” = ICON_COLUMN_LEFT + ICON_COLUMN_WIDTH，欄宽必须 ≥ 它。
+export const DESKTOP_RAIL_WIDTH = 190;
+export const ICON_COLUMN_LEFT = 18;
+export const ICON_COLUMN_WIDTH = 150;
+
 const ICONS = {
   folder:
     '<svg viewBox="0 0 16 16" width="18" height="18" aria-hidden="true">' +
@@ -30,6 +36,33 @@ export function entryCommands(entry) {
   if (entry.command) return [entry.command];
   if (entry.path) return [`cd ${entry.path}`, 'ls'];
   return [];
+}
+
+// 纯函数：点击策略 —— 键盘直接打开；鼠标第一次单击选中，第二次（双击）打开。
+export function makeClickHandler({ open, select, refocus, now = () => Date.now() } = {}) {
+  let last = 0;
+  return function onClick(e) {
+    if (e.detail === 0) { open(); return 'open'; } // 键盘 Enter / Space
+    const t = now();
+    if (t - last < DOUBLE_CLICK_MS) {
+      last = 0;
+      open();
+      return 'open';
+    }
+    last = t;
+    select();
+    if (typeof refocus === 'function') refocus();
+    return 'select';
+  };
+}
+
+// 纯函数：打开一个入口的动作序列：还原窗口 → 聚焦终端 → 执行等价命令。
+export function makeOpener({ run, focus, restore } = {}) {
+  return function openEntry(entry) {
+    if (typeof restore === 'function') restore();
+    if (typeof focus === 'function') focus();
+    for (const cmd of entryCommands(entry)) run(cmd);
+  };
 }
 
 export function initDesktop(el, entries, opts = {}) {
@@ -60,23 +93,12 @@ export function initDesktop(el, entries, opts = {}) {
       btn.innerHTML =
         `<span class="desktop-icon-glyph">${ICONS[entry.kind] || ICONS.file}</span>` +
         `<span class="desktop-icon-label">${entry.label}</span>`;
-      let lastClick = 0;
-      btn.addEventListener('click', (e) => {
-        if (e.detail === 0) { // 键盘触发的 click（Enter / Space）
-          if (typeof open === 'function') open(entry);
-          return;
-        }
-        // 自己判定双击：click 里 refocus() 改变焦点后，某些浏览器不再派发 dblclick
-        const now = Date.now();
-        if (now - lastClick < DOUBLE_CLICK_MS) {
-          lastClick = 0;
-          if (typeof open === 'function') open(entry);
-          return;
-        }
-        lastClick = now;
-        select(entry.id); // 鼠标单击 = 选中，且不抢走终端输入焦点
-        if (typeof refocus === 'function') refocus();
+      const handleClick = makeClickHandler({
+        open: () => { if (typeof open === 'function') open(entry); },
+        select: () => select(entry.id),
+        refocus,
       });
+      btn.addEventListener('click', handleClick);
       el.appendChild(btn);
     }
     mounted = true;

@@ -5,7 +5,7 @@ import { complete } from './completion.js';
 import { initTheme } from './themes.js';
 import { resolve as resolvePath } from './fs.js';
 import { LOGO, WELCOME, BOOT_LINES, ENTRIES } from './content.js';
-import { initDesktop, entryCommands } from './desktop.js';
+import { initDesktop, makeOpener, DESKTOP_RAIL_WIDTH } from './desktop.js';
 import { commands, commandNames, suggestCommand } from './commands.js';
 import { parse } from './parser.js';
 import { enableWindow } from './windowing.js';
@@ -128,15 +128,16 @@ const win = enableWindow(windowEl, {
   handle: windowEl.querySelector('.statusbar'),
   dock: document.getElementById('window-dock'),
   storageKey: 'yuan27.window.v2',
+  minLeft: DESKTOP_RAIL_WIDTH,
 });
 
 // ---- desktop shortcuts: 仅桌面端渲染（docs 1.3.1 硬规则）；只负责唤起终端 ----
 initDesktop(document.getElementById('desktop'), ENTRIES, {
-  open(entry) {
-    if (win.isMinimized()) win.unminimize();
-    inputEl.focus();
-    for (const cmd of entryCommands(entry)) submitLine(cmd);
-  },
+  open: makeOpener({
+    restore: () => { if (win.isMinimized()) win.unminimize(); },
+    focus: () => inputEl.focus(),
+    run: (cmd) => submitLine(cmd),
+  }),
   refocus() { inputEl.focus(); },
 });
 

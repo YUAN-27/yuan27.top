@@ -59,6 +59,16 @@ test('clampPosition: keeps window on screen', () => {
   assert.deepEqual(clampPosition({ left: 9999, top: 9999, w: 400, h: 300 }, vp), { left: 880, top: 760 });
 });
 
+test('clampPosition: minLeft keeps the window clear of the desktop rail', () => {
+  const vp = { width: 1000, height: 800 };
+  // 不能拖到图标栏上方
+  assert.deepEqual(clampPosition({ left: -9999, top: 0, w: 400, h: 300 }, vp, 120, 40, 190), { left: 190, top: 0 });
+  // 右边界不受影响
+  assert.deepEqual(clampPosition({ left: 9999, top: 0, w: 400, h: 300 }, vp, 120, 40, 190), { left: 880, top: 0 });
+  // 不传 minLeft 时保持原行为（允许部分移出左侧）
+  assert.deepEqual(clampPosition({ left: -9999, top: 0, w: 400, h: 300 }, vp), { left: -280, top: 0 });
+});
+
 test('MIN_W fits the widest logo line (with output padding + border)', () => {
   const maxLen = Math.max(...LOGO.split('\n').map((l) => l.length));
   const charW = 0.6 * 14; // JetBrains Mono advance width at 14px
