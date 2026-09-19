@@ -3327,3 +3327,35 @@ Task 10 的真实布局/拖拽/缩放/最大化、焦点陷阱与 Tab、`ResizeO
 - 所有多局相关 UI（比分行 `x/1`、菜单 `BEST OF`、`MATCH OVER`、`New Match`）**按 `BEST_OF > 1` 条件化**，单局制下完全不出现。
 - 帮助文案改为 `PONG_FORMAT`（arcade.js，从 `BEST_OF`/`WIN_SCORE` 推导），避免改常量后文档漂移。
 - 多局路径用 `withBestOf(3, fn)` 测试辅助保留覆盖：三局两胜的局间、发球方向、赛点结束、新比赛全部仍被测到。
+
+---
+
+## 上线记录（2026-09-19 23:48–23:49）
+
+| 项 | 值 |
+|---|---|
+| 新 release | `releases/2026-09-19-arcade` |
+| **回滚锚点** | `releases/2026-09-19-bundle`（切换前的正式版） |
+| `current` 切换方式 | `ln -sfn releases/2026-09-19-arcade current`（**相对软链**；上次 `readlink -m` 生成绝对 host 路径导致全站 404，不再犯） |
+| `/preview/` | 已指回锚点 `releases/2026-09-19-bundle` |
+| conf 备份 | `yuan27.top.conf.bak-arcade-live-20260919-2348` |
+| openresty | `-t` 通过 → `-s reload`（**未用 restart**） |
+| 停机 | 0（无 404/502 窗口） |
+
+**切换后复验（全部实测）**：
+
+```
+current -> releases/2026-09-19-arcade      容器内可见
+https://yuan27.top/ 200                    main.js 含 openGameSession
+js/games/{storage,pong,renderer,input,session,host,arcade}.js  全部 200 application/javascript
+commands.js 含 arcade 条目 · sound.js 含 blip · style.css 含 .game-window · pong.js BEST_OF: 1
+字标 line-wordmark 仍在 · og.png 200 86150B · favicon×3 / resume / sitemap / robots 全 200
+80 → 301 https:// · /preview/ 401(无认证)/200(有认证) · 证书有效至 2026-12-17
+测试 226/226
+```
+
+**回滚一行命令**：`cd /opt/1panel/www/sites/yuan27.top && ln -sfn releases/2026-09-19-bundle current`
+
+**上线前预检发现**：release 与仓库有 2 处非功能性资源差异（`assets/og.svg` 源文件、`assets/make_resume_pdf.py` 构建脚本），已同步，使 release 与仓库**逐文件零差异**。
+
+**验收后仍未由自动化覆盖的部分**（需浏览器人工确认）：拖拽/缩放/最大化、焦点陷阱与 Tab、`ResizeObserver`、触摸按钮、`≤640px` 全屏、四主题配色、音效听感。
