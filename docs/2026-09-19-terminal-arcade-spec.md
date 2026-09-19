@@ -625,7 +625,11 @@ export function createGame({ cols, rows, rng, storage, frame }) {
 
 修法：参数改名 `container`；测量节点挂到窗口根节点、显式拷贝 font、`line-height` 兼容倍数与 px；拆成 `createState`（纯）/ `createGame`（会话侧适配器，签名见 §14）。
 
-**教训**：桩与桩之间的接缝是盲区 ⇒ 必须有一条真正把全链路串起来的测试；且 DOM 桩的保真度本身要被怀疑。
+| B13 | **用红灯关掉游戏后，再也无法启动** `arcade pong`（浏览器实测 `Cannot read properties of null (reading 'addEventListener')`） | `enableWindow` 把 `closed`/`min` 与几何一起持久化；红灯=退出游戏 ⇒ 写入 `closed:true`；下次启动时 `restoreFromState()` **同步** `close()` → `onStateChange` → `onClose` → `end()` → `destroy()` → `teardown()` 把 `root` 置空，而 `mount()` 仍在继续执行 | 复现脚本（预置 `closed:true` + 真 session）+ 作者浏览器实测 |
+
+**B13 修法**：① `sanitizeStoredWindowState()` —— 游戏窗口只继承几何，**永不**继承 `closed`/`min`（每次 `arcade` 都必须以打开状态出现）；② `mount()` 在 `enableWindow` 之后立刻检查 `if (!root || !screen) return`，会话若已在初始化期间结束就干净退出。回归测试 4 条（sanitizer 纯函数 / 损坏数据 / 带 `closed` 状态挂载 / 端到端二次启动）。
+
+**教训**：桩与桩之间的接缝是盲区 ⇒ 必须有一条真正把全链路串起来的测试；且 DOM 桩的保真度本身要被怀疑；**复用别人的持久化时要问"它到底存了什么"**（几何 vs 生命周期状态）。
 
 ---
 

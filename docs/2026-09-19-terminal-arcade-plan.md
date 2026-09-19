@@ -3288,3 +3288,17 @@ Task 10 的真实布局/拖拽/缩放/最大化、焦点陷阱与 Tab、`ResizeO
 - **零字体改动**：`█`(U+2588) 与 `┃`(U+2503) 都已在现网字体子集内，宽度均 600/1000 = 0.6em。
 - 同步改动：`renderer.js` 的 `glyphs`、4 处测试断言（受影响的 `games-pong-render` / `games-integration`）。
 - 顺带验证过但**未采用**的候选：`●`(U+25CF) / `○`(U+25CB) / `◉`(U+25C9) —— 需重建字体子集（已实测可行：官方 v2.304 源字体 + `pyftsubset`，+3 码点、132 个旧字形轮廓零变化、体积 +284B），留作备选。
+
+### 上线后事故：红灯关闭 → 再也启动不了（B13）
+
+作者在 preview 实测报 `arcade: failed to start session (Cannot read properties of null (reading 'addEventListener'))`。
+
+**根因**：`host.js` 为游戏窗口复用了 `enableWindow` 的 `storageKey` 持久化，而它会**连同 `closed`/`min` 一起存**。
+红灯是设计好的「退出游戏」方式 ⇒ 写入 `closed:true`；下一次 `arcade pong` 时 `enableWindow → restoreFromState()`
+**同步**执行 `close()` → `onStateChange → onClose → end() → destroy() → teardown()`（`root = null`），
+而 `mount()` 还在继续跑 → `root.addEventListener` 撞上 `null`。
+
+**修复**（`6995216`）：`sanitizeStoredWindowState()` 只继承几何、永远丢掉 `closed`/`min`；`mount()` 在 `enableWindow` 之后
+加 `if (!root || !screen) return` 干净退出；新增 4 条回归测试（含"预置 closed 状态仍能启动"的端到端用例）。
+
+**教训**：① 复用别人的持久化前要问清"它存了什么"（几何 vs 生命周期状态）；② `onStateChange` 这类回调可能在初始化**中途**同步触发销毁，mount 必须可重入安全；③ 单测盲区只有端到端链路能暴露。
