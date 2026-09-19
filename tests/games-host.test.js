@@ -1,7 +1,7 @@
 // tests/games-host.test.js
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createHost, sanitizeStoredWindowState, GAME_STORAGE_KEY } from '../js/games/host.js';
+import { createHost, sanitizeStoredWindowState, defaultGameGeom, GAME_STORAGE_KEY, GAME_MIN_W, GAME_MIN_H } from '../js/games/host.js';
 
 // ---------------------------------------------------------------------------
 // 极简 DOM 桩：只验证 host 的**结构契约**（能不能挂上去、行是否写进 screen）。
@@ -25,7 +25,8 @@ function stubEl(tag = 'div') {
       _s: new Set(),
       add(...c) { c.forEach((x) => this._s.add(x)); },
       remove(...c) { c.forEach((x) => this._s.delete(x)); },
-      toggle() {}, contains() { return false; },
+      toggle(c, f) { (f === undefined ? !this._s.has(c) : f) ? this._s.add(c) : this._s.delete(c); },
+      contains(c) { return this._s.has(c); },   // 保真：不能再恒 false（曾让断言假绿灯）
     },
     setAttribute(k, v) { this.attrs[k] = String(v); },
     getAttribute(k) { return this.attrs[k] ?? null; },
@@ -52,7 +53,7 @@ function stubEl(tag = 'div') {
 }
 
 // 在桩环境下执行 fn，结束后还原全局（node --test 每个文件独立进程，安全）
-function withStubDom(fn) {
+function withStubDom(fn, opts = {}) {
   const body = stubEl('body');
   const noop = () => {};
   const mem = new Map();
@@ -65,7 +66,7 @@ function withStubDom(fn) {
       querySelector: () => stubEl('s'), querySelectorAll: () => [],
     },
     window: {
-      innerWidth: 1280, innerHeight: 800,
+      innerWidth: opts.width ?? 1280, innerHeight: opts.height ?? 800,
       matchMedia: () => ({ matches: false, addEventListener: noop, removeEventListener: noop, addListener: noop }),
       addEventListener: noop, removeEventListener: noop,
     },
@@ -204,6 +205,62 @@ test('mounting still works when a previous red-dot close was persisted', () => {
     assert.ok(parts.screen, 'screen must exist');
     assert.equal(body.children.length, 1, 'the window must be mounted and visible');
     assert.equal(JSON.parse(storage.get(GAME_STORAGE_KEY)).closed, undefined, 'closed must have been cleared');
+    host.teardown();
+  });
+});
+
+// ---- 默认几何：按「最大网格」反推，而不是拍一个固定像素 ----
+// 旧实现固定 760×520 ⇒ 屏幕盒 738×430 ⇒ 网格 87×25、场地 20 行、挡板 4 格（大屏上明显偏小）
+
+test('defaultGameGeom targets the maximum grid when the viewport allows', () => {
+  const g = defaultGameGeom({ viewport: { width: 1920, height: 1080 }, railWidth: 190, cellW: 8.4, lineH: 16.8, chromeW: 22, chromeH: 74 });
+  const cols = Math.floor((g.w - 22) / 8.4);
+  const rows = Math.floor((g.h - 74) / 16.8);
+  assert.ok(cols >= 120, `expected >=120 columns worth of width, got ${cols}`);
+  assert.ok(rows >= 40, `expected >=40 rows worth of height, got ${rows}`);
+});
+
+test('defaultGameGeom never exceeds the viewport, never invades the rail, keeps the minimums', () => {
+  for (const [vw, vh] of [[2560, 1400], [1440, 900], [1024, 768], [820, 640], [700, 500], [640, 480]]) {
+    const g = defaultGameGeom({ viewport: { width: vw, height: vh }, railWidth: 190, cellW: 8.4, lineH: 16.8, chromeW: 22, chromeH: 74 });
+    assert.ok(g.left >= 190, `${vw}x${vh}: left ${g.left} invaded the icon rail`);
+    assert.ok(g.left + g.w <= vw + 1, `${vw}x${vh}: window overflows horizontally`);
+    assert.ok(g.top + g.h <= vh + 1, `${vw}x${vh}: window overflows vertically`);
+    assert.ok(g.w >= GAME_MIN_W && g.h >= GAME_MIN_H, `${vw}x${vh}: below the minimum size`);
+  }
+});
+
+test('a bigger viewport never produces a smaller window', () => {
+  const w = (vw) => defaultGameGeom({ viewport: { width: vw, height: 900 }, railWidth: 190 }).w;
+  assert.ok(w(1920) >= w(1280));
+  assert.ok(w(1280) >= w(1024));
+  assert.ok(w(1024) >= w(820));
+});
+
+test('defaultGameGeom tolerates a missing viewport', () => {
+  assert.doesNotThrow(() => defaultGameGeom({}));
+  assert.doesNotThrow(() => defaultGameGeom());
+  assert.ok(defaultGameGeom().w > 0);
+});
+
+test('on a narrow viewport the host leaves geometry to the full-bleed CSS', () => {
+  withStubDom(({ body }) => {
+    const host = createHost({ mount: body, railWidth: 0 });
+    const { root } = host.mount({ title: 'T', onClose() {} });
+    assert.equal(root.style.width, '', 'inline width would override the <=640px full-bleed rule');
+    assert.equal(root.style.height, '');
+    assert.equal(root.classList.contains('floating'), false, 'no floating class on mobile');
+    host.teardown();
+  }, { width: 390, height: 780 });
+});
+
+test('on a wide viewport the host applies the computed default geometry', () => {
+  withStubDom(({ body }) => {
+    const host = createHost({ mount: body, railWidth: 190 });
+    const { root } = host.mount({ title: 'T', onClose() {} });
+    assert.match(root.style.width, /^\d+px$/, 'expected an explicit width on desktop');
+    assert.ok(parseInt(root.style.width, 10) >= 600, `window too small: ${root.style.width}`);
+    assert.equal(root.classList.contains('floating'), true);
     host.teardown();
   });
 });

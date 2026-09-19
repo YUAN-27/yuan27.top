@@ -5,12 +5,45 @@
 //  无挂载点时必须返回惰性宿主，绝不能抛错（页面上不能因为游戏崩）。
 // ============================================================
 import { enableWindow } from '../windowing.js';
-import { diffRows } from './renderer.js';
+import { diffRows, GRID_MAX } from './renderer.js';
 
 export const GAME_BREAKPOINT = 640;
-export const GAME_STORAGE_KEY = 'yuan27.arcade.window.v1';
+// v2：默认尺寸改算法（按最大网格反推）+ 不再继承旧几何。
+// v1 还会被旧版写入 closed:true 的历史状态毒化（见下面的 sanitize）。
+export const GAME_STORAGE_KEY = 'yuan27.arcade.window.v2';
 export const GAME_MIN_W = 420;
 export const GAME_MIN_H = 260;
+
+// 默认几何：由「想要多大的网格」反推窗口尺寸，而不是拍一个固定像素值。
+// 旧实现固定 760×520 ⇒ 屏幕盒只剩 738×430 ⇒ 网格 87×25、场地 87×20（挡板仅 4 格），
+// 在大屏幕上明显偏小偏扁。现在以 renderer 的上限（GRID_MAX = 120×40）为目标，
+// 屏幕不够时再缩到视口内。
+export function defaultGameGeom({
+  viewport,
+  railWidth = 0,
+  cellW = 8.4,
+  lineH = 16.8,
+  chromeW = 22,
+  chromeH = 73,
+  margin = 24,
+  targetCols = GRID_MAX.cols,
+  targetRows = GRID_MAX.rows,
+} = {}) {
+  const vw = viewport && viewport.width ? viewport.width : 1280;
+  const vh = viewport && viewport.height ? viewport.height : 800;
+  // +2/+1 的余量：保证反推出的尺寸经过 floor() 取整后不会掉一格
+  const wantW = Math.ceil(targetCols * cellW) + chromeW + 2;
+  const wantH = Math.ceil(targetRows * lineH) + chromeH + 1;
+  const maxW = Math.max(GAME_MIN_W, vw - margin - railWidth);
+  const maxH = Math.max(GAME_MIN_H, vh - margin);
+  const w = Math.round(Math.min(wantW, maxW));
+  const h = Math.round(Math.min(wantH, maxH));
+  // 在主终端右侧的可用区域内居中（左边界永不侵入图标栏）
+  const avail = Math.max(0, vw - railWidth);
+  const left = Math.round(railWidth + Math.max(0, (avail - w) / 2));
+  const top = Math.round(Math.max(0, (vh - h) / 2));
+  return { w, h, left, top };
+}
 
 function browserStorage() {
   try { return globalThis.localStorage || null; } catch { return null; }
@@ -80,6 +113,39 @@ export function createHost({ mount: container = null, railWidth = 0, focusInput 
     return { cols: cells.cols, rows: cells.rows };
   }
 
+  function isDesktop() { return typeof window === 'undefined' || window.innerWidth > GAME_BREAKPOINT; }
+
+  // 桌面端：按最大网格反推并应用默认几何（用户拖过/缩过就不再干预）
+  function applyDefaultGeom() {
+    if (!root || !screen) return;
+    measure();
+    const rr = root.getBoundingClientRect();
+    const sr = screen.getBoundingClientRect();
+    const g = defaultGameGeom({
+      viewport: { width: window.innerWidth, height: window.innerHeight },
+      railWidth,
+      cellW: cells.cellW,
+      lineH: cells.lineH,
+      chromeW: Math.max(0, rr.width - sr.width),
+      chromeH: Math.max(0, rr.height - sr.height),
+    });
+    root.classList.add('floating');
+    root.style.width = g.w + 'px';
+    root.style.height = g.h + 'px';
+    root.style.left = g.left + 'px';
+    root.style.top = g.top + 'px';
+  }
+
+  // ≤640px：必须清掉内联几何，否则内联样式会**覆盖** .terminal-window 的全屏媒体查询
+  function clearInlineGeom() {
+    if (!root) return;
+    root.classList.remove('floating', 'maximized', 'minimized');
+    root.style.width = '';
+    root.style.height = '';
+    root.style.left = '';
+    root.style.top = '';
+  }
+
   function mount(opts = {}) {
     if (!container || typeof document === 'undefined') return { root: null, screen: null, touch: null };
 
@@ -145,15 +211,11 @@ export function createHost({ mount: container = null, railWidth = 0, focusInput 
     // 那时 root/screen 已被置空。必须立刻干净退出，不能继续碰 DOM。
     if (!root || !screen) return { root: null, screen: null, touch: null };
 
-    // 默认几何：比主窗口小，居中（可通过拖动/缩放改变）
-    if (!win.getState().floating) {
-      const w = Math.min(760, Math.round(window.innerWidth * 0.72));
-      const h = Math.min(520, Math.round(window.innerHeight * 0.64));
-      root.classList.add('floating');
-      root.style.width = w + 'px';
-      root.style.height = h + 'px';
-      root.style.left = Math.max(railWidth, Math.round((window.innerWidth - w) / 2)) + 'px';
-      root.style.top = Math.round((window.innerHeight - h) / 2) + 'px';
+    // 默认几何：桌面端按最大网格反推；移动端完全不设置（交给 CSS 全屏规则）
+    if (isDesktop()) {
+      if (!win.getState().floating) applyDefaultGeom();
+    } else {
+      clearInlineGeom();
     }
 
     // ---- listeners（全部登记 offs，teardown 时逐一移除）----
@@ -168,7 +230,7 @@ export function createHost({ mount: container = null, railWidth = 0, focusInput 
     window.addEventListener('focus', fo);          // 与 blur 成对：失焦暂停 → 回焦恢复
     const vis = () => emit('visibility', document.hidden ? 'hidden' : 'visible');
     document.addEventListener('visibilitychange', vis);
-    const rs = () => onResizeNotify();
+    const rs = () => { if (!isDesktop()) clearInlineGeom(); onResizeNotify(); };
     window.addEventListener('resize', rs);
 
     if (typeof ResizeObserver === 'function') {

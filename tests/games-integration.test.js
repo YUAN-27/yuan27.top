@@ -14,7 +14,7 @@
 // ---------------------------------------------------------------------------
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createHost } from '../js/games/host.js';
+import { createHost, GAME_STORAGE_KEY } from '../js/games/host.js';
 import { createSession, getActive, resetActive } from '../js/games/session.js';
 import { createStore } from '../js/games/storage.js';
 import { createGame } from '../js/games/pong.js';
@@ -36,7 +36,8 @@ function makeStubDom() {
         _s: new Set(),
         add(...c) { c.forEach((x) => this._s.add(x)); },
         remove(...c) { c.forEach((x) => this._s.delete(x)); },
-        toggle() {}, contains() { return false; },
+        toggle(c, f) { (f === undefined ? !this._s.has(c) : f) ? this._s.add(c) : this._s.delete(c); },
+        contains(c) { return this._s.has(c); },   // 保真：不能恒 false
       },
       setAttribute(k, v) { this.attrs[k] = String(v); },
       getAttribute(k) { return this.attrs[k] ?? null; },
@@ -232,11 +233,11 @@ test('a red-dot close persisted last time must not block the next launch', () =>
   const dom = makeStubDom();
   try {
     // 模拟 enableWindow 上一次把 closed:true 写进 localStorage
-    dom.storageSet('yuan27.arcade.window.v1', JSON.stringify({ left: 300, top: 200, w: 640, h: 400, max: false, min: false, closed: true }));
+    dom.storageSet(GAME_STORAGE_KEY, JSON.stringify({ left: 300, top: 200, w: 640, h: 400, max: false, min: false, closed: true }));
     const { session } = startArcade(dom, { focusRef: { focus() {} } });
     assert.equal(session.getState(), 'running', 'the session must survive a persisted closed state');
     assert.equal(dom.body.children.length, 1, 'the game window must really be mounted');
-    assert.equal(JSON.parse(dom.storageGet('yuan27.arcade.window.v1')).closed, undefined, 'closed must be cleared');
+    assert.equal(JSON.parse(dom.storageGet(GAME_STORAGE_KEY)).closed, undefined, 'closed must be cleared');
     session.destroy();
     assert.equal(dom.body.children.length, 0);
   } finally { dom.restore(); }
