@@ -113,7 +113,6 @@ inputEl.addEventListener('input', syncInputSize);
 // ---- boot / skip state ----
 let booting = true;
 let skipBoot = false;
-const VISITED_KEY = 'yuan27.visited';
 
 // ---- focus & skip ---- 
 windowEl.addEventListener('click', () => inputEl.focus());
@@ -168,19 +167,17 @@ async function boot() {
   startClock();
 
   const logoLines = frameLogo(LOGO);
-  // 老访客不再播放慢速动画；点击/按键可跳过
-  const repeat = (() => { try { return !!localStorage.getItem(VISITED_KEY); } catch { return false; } })();
-  const d = (ms) => (repeat || skipBoot ? 0 : ms);
+  // 每次进入（含刷新）都逐行打印；点击/按键可跳过
+  const d = (ms) => (skipBoot ? 0 : ms);
 
   await term.printText(BOOT_LINES, { className: 'line-muted', lineDelay: d(150) });
   await term.printText([''], { lineDelay: 0 });
-  await term.printText(logoLines, { className: 'logo', lineDelay: d(90) });
+  await term.printText(logoLines, { className: 'logo', lineDelay: d(70) });
   await term.printText([''], { lineDelay: 0 });
-  await term.printText(WELCOME, { lineDelay: 0 });
+  await term.printText(WELCOME, { lineDelay: d(120) });
   await term.printText([''], { lineDelay: 0 });
 
   booting = false;
-  try { localStorage.setItem(VISITED_KEY, '1'); } catch { /* ignore */ }
 
   // Avoid popping the mobile keyboard on load.
   if (window.matchMedia('(min-width: 640px)').matches) inputEl.focus();
