@@ -51,6 +51,29 @@ export function createSession({
     try { fn(); } catch { /* 音效失败绝不影响游戏 */ }
   }
 
+  // 比赛结束：写入战绩（yuan27.arcade.v1 里的 gamesPlayed / playerWins / aiWins / bestScore）
+  // 语义：playerWins = 左侧获胜场次，aiWins = 右侧获胜场次（双人模式下右侧也是玩家）。
+  // 统计失败绝不影响游戏。
+  function recordMatch() {
+    if (!store || typeof store.update !== 'function') return;
+    try {
+      const st = game.state || {};
+      const winner = st.winner;
+      const score = Array.isArray(st.score) ? st.score : [0, 0];
+      store.update((d) => {
+        const p = d.pong;
+        p.gamesPlayed += 1;
+        if (winner === 0) p.playerWins += 1;
+        else if (winner === 1) p.aiWins += 1;
+        const best = p.bestScore || { left: 0, right: 0 };
+        best.left = Math.max(best.left, score[0] || 0);
+        best.right = Math.max(best.right, score[1] || 0);
+        p.bestScore = best;
+        return d;
+      });
+    } catch { /* ignore */ }
+  }
+
   function paint(force = false) {
     const out = game.render(frameObj);
     const changed = force ? out.map((_, i) => i) : diffRows(prevRows, out);
@@ -76,8 +99,13 @@ export function createSession({
     try {
       game.update(dt, axes(input));
       const evs = game.state && Array.isArray(game.state.events) ? game.state.events : [];
-      for (const ev of evs) tell(ev);
+      let matchOver = false;
+      for (const ev of evs) {
+        tell(ev);
+        if (ev === 'over') matchOver = true;
+      }
       if (evs.length) evs.length = 0;
+      if (matchOver) recordMatch();
       paint(false);
       syncStatus();
       if (typeof game.isOver === 'function' && game.isOver()) {

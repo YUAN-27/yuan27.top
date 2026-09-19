@@ -72,7 +72,7 @@ test('render draws the ball inside the playfield', () => {
 test('the ball glyph never collides with on-screen text', () => {
   const s = playing();
   const f = frame();
-  for (const ph of ['menu', 'serve', 'play', 'gameover']) {
+  for (const ph of ['menu', 'serve', 'play', 'intermission', 'gameover']) {
     s.phase = ph;
     const rows = render(s, f);
     const n = countOf(rows, '█');
@@ -194,4 +194,62 @@ test('the adapter restart / isOver / statusLine delegate to the pure functions',
   g.restart();
   assert.equal(g.isOver(), false);
   assert.deepEqual(g.state.score, [0, 0]);
+});
+
+// ---- 三局两胜的界面 ----
+
+test('intermission shows the game result and the series score', () => {
+  const s = playing();
+  s.games = [1, 0];
+  s.gameWinner = 0;
+  s.phase = 'intermission';
+  const f = frame();
+  const mid = render(s, f).slice(f.layout.fieldTop, f.layout.fieldBottom + 1).join('\n');
+  assert.ok(mid.includes('END OF GAME 1'));
+  assert.ok(mid.includes('PLAYER WINS THE GAME'));
+  assert.ok(mid.includes('GAMES 1 - 0'));
+  assert.ok(mid.includes('BEST OF 3'));
+  assert.ok(mid.includes('[Space] Next Game'));
+});
+
+test('match over shows the series result and the last game score', () => {
+  const s = playing();
+  s.games = [2, 1];
+  s.winner = 0;
+  s.score = [11, 7];
+  s.phase = 'gameover';
+  const f = frame();
+  const mid = render(s, f).slice(f.layout.fieldTop, f.layout.fieldBottom + 1).join('\n');
+  assert.ok(mid.includes('MATCH OVER'));
+  assert.ok(mid.includes('PLAYER WINS 2 - 1'));
+  assert.ok(mid.includes('LAST GAME 11 - 07'));
+  assert.ok(mid.includes('[Space] New Match'));
+});
+
+test('the score row carries the series progress on both sides', () => {
+  const s = playing();
+  s.games = [1, 0];
+  const f = frame();
+  const row = render(s, f)[f.layout.scoreRow];
+  assert.ok(row.includes('1/2'), `left series missing: ${row}`);
+  assert.ok(row.includes('0/2'), `right series missing: ${row}`);
+});
+
+test('the menu advertises the match format', () => {
+  const s = createState({ rng: () => 0.5 });
+  const f = frame();
+  const mid = render(s, f).slice(f.layout.fieldTop, f.layout.fieldBottom + 1).join('\n');
+  assert.ok(mid.includes('BEST OF 3'));
+  assert.ok(mid.includes('FIRST TO 11'));
+});
+
+test('intermission and gameover screens stay inside the glyph whitelist', () => {
+  const s = playing();
+  const f = frame();
+  for (const [ph, extra] of [['intermission', { gameWinner: 1 }], ['gameover', { winner: 0 }]]) {
+    Object.assign(s, extra);
+    s.games = [1, 1];
+    s.phase = ph;
+    assert.ok(withinWhitelist(render(s, f)), `phase ${ph} drew an out-of-subset glyph`);
+  }
 });

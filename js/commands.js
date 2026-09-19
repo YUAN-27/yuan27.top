@@ -462,6 +462,10 @@ Usage:
     arcade --help          show this help
     arcade --reset         reset arcade data (scores, mute)
 
+Pong format:
+    Best of 3 - first to 2 games wins the match
+    11 points per game
+
 Pong controls:
     W / S                  move player 1 paddle
     Up / Down              move player 2 paddle (two-player mode)

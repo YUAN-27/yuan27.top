@@ -3307,3 +3307,14 @@ Task 10 的真实布局/拖拽/缩放/最大化、焦点陷阱与 Tab、`ResizeO
 
 作者反馈"pong 窗口默认大小不对"。实测旧默认 760×520 ⇒ 屏幕盒 738×430 ⇒ **网格仅 87×25、场地 20 行、挡板 4 格**，在大屏上明显偏小偏扁。
 修法：`defaultGameGeom()` 以 `GRID_MAX`（120×40）反推窗口尺寸并夹到视口内。附带修掉一个真 bug：**内联几何会覆盖 `≤640px` 的全屏媒体查询** ⇒ 之前移动端游戏窗口根本没全屏。key 升到 `yuan27.arcade.window.v2`（不沿用旧几何）。新增 6 条几何测试。
+
+### 赛制：三局两胜（作者要求补上局数）
+
+原实现是"单局先到 11 分即结束"，**没有局数概念**。现改为 **`BEST_OF = 3`（三局两胜，先赢 2 局）**，每局仍先到 11 分。
+
+- 新增 `phase: 'intermission'`（局间）：显示 `END OF GAME n` / 局胜者 / `GAMES x - y  BEST OF 3` / `[Space] Next Game`。
+- `gameover` 改为**整场结束**：`MATCH OVER` / `PLAYER WINS 2 - 1` / `LAST GAME 11 - 07` / `[Space] New Match`（开新比赛，局分清零）。
+- 比分行两侧常驻局分进度 `x/2`；菜单写明 `BEST OF 3 - FIRST TO 11`；`arcade --help` 与 registry help 同步。
+- 新局发球朝上一局的失分方；`nextGame()` 与 `restart()` 语义分离（下一局 vs 新比赛）。
+- 顺带把**战绩真正落库**：此前 `yuan27.arcade.v1` 的 `gamesPlayed/playerWins/aiWins/bestScore` 从未被写过，现在在比赛结束事件里由 session 写入一次（写失败静默）。
+- 测试 +14（`pong` 25 / `pong-render` 19 / `session` 19），全量 **232/232**。

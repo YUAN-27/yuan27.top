@@ -47,7 +47,7 @@ $ _                  ← 焦点回到主终端输入行，历史仍在
 | 输入 | 行为 |
 |---|---|
 | `arcade` | 列出可用游戏（ASCII 表格 + `Type: arcade pong`） |
-| `arcade pong` | 打开游戏会话 |
+| `arcade pong` | 打开游戏会话（三局两胜，每局先到 11 分） |
 | `arcade --list` | 同 `arcade` |
 | `arcade --help` | 用法说明（走 registry 的 `help`） |
 | `arcade --reset` | 只删 `yuan27.arcade.v1`，回报已重置 |
@@ -285,8 +285,10 @@ state = {
     { x: 0.030, w: 0.012, y, h: 0.180, vy },   // y = 顶端，归一化
     { x: 0.958, w: 0.012, y, h: 0.180, vy },
   ],
-  score: [0, 0],
-  phase: 'menu' | 'serve' | 'play' | 'gameover',
+  score: [0, 0],                // 本局比分
+  games: [0, 0],                // 局分（三局两胜）
+  gameWinner: null,             // 本局胜者（局间显示用）
+  phase: 'menu' | 'serve' | 'play' | 'intermission' | 'gameover',
   serveDelay, winner, mode, speed
 }
 ```
@@ -389,7 +391,8 @@ resize
 | `PADDLE_H` | 0.180 | 挡板高度（归一化） |
 | `PADDLE_SPEED` | 1.5 /s | 挡板移动速度 |
 | `MAX_BOUNCE_VY` | 0.75 | 出射角的垂直分量上限（边缘更斜） |
-| `WIN_SCORE` | 11 | 先到 11 分获胜 |
+| `WIN_SCORE` | 11 | 单局先到 11 分 |
+| `BEST_OF` | 3 | 三局两胜；`WINS_NEEDED = ceil(BEST_OF/2) = 2`（由常量推导） |
 | `SERVE_DELAY` | 0.9 s | 得分后中央停顿 |
 | `AI_SPEED` | 1.05 /s | AI 挡板最大速度（`normal`） |
 | `SUBSTEP_MAX` | 0.004 | 子步长上限（防穿透） |
@@ -432,7 +435,9 @@ for i in 1..steps: substep(dt / steps)
 - `menu`：模式选择（`1`/`2`/`Q`），不跑球。
 - `serve`：`serveDelay` 倒计时结束 → `play`。
 - `play`：正常积分。
-- `gameover`：任一方到 `WIN_SCORE` → 定格，记录战绩，显示胜者 + 最终比分 + `[Space] Again  [ESC] Quit`。
+- `intermission`（局间）：某一方拿下本局但比赛未结束 → 显示 `END OF GAME n` / 局胜者 / `GAMES x - y  BEST OF 3` / `[Space] Next Game`。按 Space → 开下一局（**保留局分**，比分清零，发球朝上一局的失分方）。
+- `gameover`（比赛结束）：某方局分达到 `WINS_NEEDED`（2） → 定格，记录战绩，显示 `MATCH OVER` / `PLAYER WINS 2 - 1` / `LAST GAME 11 - 07` / `[Space] New Match`。按 Space → 开**整场新比赛**（局分归零）。
+- 比分行两侧常驻显示局分进度 `x/2`，菜单里写明 `BEST OF 3 - FIRST TO 11`。
 
 ### 7.5 AI（首个版本刻意简单）
 
@@ -511,6 +516,7 @@ Key：`yuan27.arcade.v1`（不污染 `yuan27.window.v2` / `yuan27.sound.v1` / `y
 - `JSON.parse` 失败 / 读到非对象 / 字段类型不对 → 返回默认值（整个网站启动不受影响）。
 - `localStorage` 不可用（隐私模式）→ 全部操作静默降级为内存态。
 - `arcade --reset` **只** `removeItem('yuan27.arcade.v1')`，其他站点数据一律不动。
+- **写入时机**：比赛结束（`gameover` 事件）时由 session 写入一次 —— `gamesPlayed` +1、胜方 `playerWins`/`aiWins` +1、`bestScore.{left,right}` 取历史单局最高分。写失败静默（不影响游戏）。
 
 ---
 

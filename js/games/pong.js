@@ -17,7 +17,8 @@ export const C = {
   BALL_R: 0.014,
   MAX_ANGLE: 0.84,      // 出射角上限 ≈48°
   PADDLE_SPIN: 0.12,    // 挡板移动对出射角的轻微影响
-  WIN_SCORE: 11,
+  WIN_SCORE: 11,        // 单局：先到 11 分
+  BEST_OF: 3,           // 比赛：三局两胜（先赢 2 局者胜）
   SERVE_DELAY: 0.9,
   AI_SPEED: { easy: 0.72, normal: 1.05 },
   AI_DEAD: 0.012,
@@ -27,24 +28,35 @@ export const C = {
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 
+// 三局两胜 ⇒ 需要赢 2 局（由 BEST_OF 推导，改常量即可）
+export const WINS_NEEDED = Math.ceil(C.BEST_OF / 2);
+
+// 双方名称（渲染与文案共用）
+export function sideName(state, i) {
+  if (state.mode === 'two') return i === 0 ? 'PLAYER 1' : 'PLAYER 2';
+  return i === 0 ? 'PLAYER' : 'AI';
+}
+
 function makePaddle(i) {
   return { x: C.PADDLE_X[i], w: C.PADDLE_W, y: 0.5 - C.PADDLE_H / 2, h: C.PADDLE_H, vy: 0 };
 }
 
 export function createState({ rng = Math.random, difficulty = 'normal' } = {}) {
   return {
-    phase: 'menu',          // menu | serve | play | gameover
+    phase: 'menu',          // menu | serve | play | intermission | gameover
     mode: 'single',         // single | two
     difficulty: difficulty === 'easy' ? 'easy' : 'normal',
     ball: { x: 0.5, y: 0.5, r: C.BALL_R },
     vel: { x: 0, y: 0 },
     speed: C.SPEED0,
     paddles: [makePaddle(0), makePaddle(1)],
-    score: [0, 0],
+    score: [0, 0],          // 本局比分
+    games: [0, 0],          // 局分（三局两胜）
+    gameWinner: null,       // 本局胜者（局间用）
     serveDelay: 0,
     serveDir: 1,
-    winner: null,
-    events: [],             // 'paddle' | 'wall' | 'score' | 'over'（每帧清空，供音效）
+    winner: null,           // 整场比赛胜者（仅 gameover）
+    events: [],             // 'paddle' | 'wall' | 'score' | 'game' | 'over'（每帧清空，供音效与战绩）
     rng,
   };
 }
@@ -54,10 +66,22 @@ export function isOver(state) { return state.phase === 'gameover'; }
 export function startMatch(state, mode = 'single') {
   state.mode = mode === 'two' ? 'two' : 'single';
   state.score = [0, 0];
+  state.games = [0, 0];
+  state.gameWinner = null;
   state.winner = null;
   state.speed = C.SPEED0;
   state.paddles = [makePaddle(0), makePaddle(1)];
   toServe(state, 1);
+}
+
+// 新的一局（局分保留）；restart 才是开一整场新比赛
+export function nextGame(state) {
+  const loser = state.gameWinner === 0 ? 1 : 0;
+  state.score = [0, 0];
+  state.gameWinner = null;
+  state.speed = C.SPEED0;
+  state.paddles = [makePaddle(0), makePaddle(1)];
+  toServe(state, loser === 0 ? -1 : 1);   // 发球朝上一局的失分方
 }
 
 export function restart(state) { startMatch(state, state.mode); }
@@ -115,14 +139,25 @@ function bounceOffPaddle(state, i, sign, p) {
   state.events.push('paddle');
 }
 
+function endGame(state, who) {
+  state.games[who] += 1;
+  state.gameWinner = who;
+  state.vel = { x: 0, y: 0 };
+  if (state.games[who] >= WINS_NEEDED) {
+    state.winner = who;
+    state.phase = 'gameover';       // 整场比赛结束
+    state.events.push('over');      // session 用它记录战绩
+  } else {
+    state.phase = 'intermission';   // 局间：等 Space 开下一局
+    state.events.push('game');
+  }
+}
+
 function awardPoint(state, who) {
   state.score[who] += 1;
   state.events.push('score');
   if (state.score[who] >= C.WIN_SCORE) {
-    state.winner = who;
-    state.phase = 'gameover';
-    state.vel = { x: 0, y: 0 };
-    state.events.push('over');
+    endGame(state, who);
     return;
   }
   toServe(state, who === 0 ? 1 : -1);   // 球朝失分方
@@ -152,7 +187,7 @@ function substep(state, h) {
 
 export function update(state, dt, axes = {}) {
   state.events = [];
-  if (state.phase === 'menu' || state.phase === 'gameover') return state;
+  if (state.phase === 'menu' || state.phase === 'gameover' || state.phase === 'intermission') return state;
 
   // 两个不同的 dt，职责不同（不要合并）：
   //   raw  = 真实时间，用于「时钟」（发球倒计时）；
@@ -188,8 +223,12 @@ export function handleKey(state, key) {
     if (k === '2') { startMatch(state, 'two'); return true; }
     return false;
   }
+  if (state.phase === 'intermission') {
+    if (k === ' ' || k === 'Enter') { nextGame(state); return true; }
+    return false;
+  }
   if (state.phase === 'gameover') {
-    if (k === ' ' || k === 'Enter') { restart(state); return true; }
+    if (k === ' ' || k === 'Enter') { restart(state); return true; }   // 开一整场新比赛
     return false;
   }
   return false;
@@ -197,7 +236,8 @@ export function handleKey(state, key) {
 
 export function statusLine(state) {
   if (state.phase === 'menu') return '[1] Single Player   [2] Two Players   [Q] Quit';
-  if (state.phase === 'gameover') return '[Space] Play Again   [ESC] Quit';
+  if (state.phase === 'intermission') return '[Space] Next Game   [ESC] Quit';
+  if (state.phase === 'gameover') return '[Space] New Match   [ESC] Quit';
   if (state.mode === 'two') return '[W/S] P1   [Up/Down] P2   [M] Mute   [ESC] Quit';
   return '[W/S] Move   [M] Mute   [ESC] Quit';
 }
@@ -222,11 +262,15 @@ export function render(state, frame) {
   const rows = frame.grid.slice();
   const L = frame.layout;
 
-  // 比分
+  // 本局比分 + 两侧的局分（x/2）
   const left = pad(state.score[0]);
   const right = pad(state.score[1]);
   blit(rows, Math.max(2, L.cx - 8), L.scoreRow, left);
   blit(rows, Math.min(L.cols - 4, L.cx + 6), L.scoreRow, right);
+  const g0 = `${state.games[0]}/${WINS_NEEDED}`;
+  const g1 = `${state.games[1]}/${WINS_NEEDED}`;
+  blit(rows, 2, L.scoreRow, g0);
+  blit(rows, Math.max(L.cx + 12, L.cols - 3 - g1.length), L.scoreRow, g1);
 
   const fieldRows = L.fieldRows;
   const toRow = (y) => L.fieldTop + clampRow(y * (fieldRows - 1), 0, fieldRows - 1);
@@ -239,18 +283,29 @@ export function render(state, frame) {
     put(-1, '[1] Single Player');
     put(1, '[2] Two Players');
     put(3, '[Q] Quit');
+    put(5, `BEST OF ${C.BEST_OF}  -  FIRST TO ${C.WIN_SCORE}`);
+    return rows;
+  }
+
+  if (state.phase === 'intermission') {
+    const cx = L.cx;
+    const mid = L.fieldTop + Math.floor(fieldRows / 2);
+    const put = (dy, text) => blit(rows, cx - Math.floor(text.length / 2), mid + dy, text);
+    put(-3, `END OF GAME ${state.games[0] + state.games[1]}`);
+    put(-1, `${sideName(state, state.gameWinner)} WINS THE GAME`);
+    put(1, `GAMES ${state.games[0]} - ${state.games[1]}   BEST OF ${C.BEST_OF}`);
+    put(3, '[Space] Next Game');
     return rows;
   }
 
   if (state.phase === 'gameover') {
     const cx = L.cx;
     const mid = L.fieldTop + Math.floor(fieldRows / 2);
-    const who = state.winner === 0 ? (state.mode === 'two' ? 'PLAYER 1 WINS' : 'PLAYER WINS') : 'AI WINS';
     const put = (dy, text) => blit(rows, cx - Math.floor(text.length / 2), mid + dy, text);
-    put(-2, 'GAME OVER');
-    put(0, who);
-    put(2, `${pad(state.score[0])} - ${pad(state.score[1])}`);
-    put(4, '[Space] Play Again');
+    put(-3, 'MATCH OVER');
+    put(-1, `${sideName(state, state.winner)} WINS ${state.games[0]} - ${state.games[1]}`);
+    put(1, `LAST GAME ${pad(state.score[0])} - ${pad(state.score[1])}`);
+    put(3, '[Space] New Match');
     return rows;
   }
 

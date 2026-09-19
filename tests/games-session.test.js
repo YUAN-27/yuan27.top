@@ -243,3 +243,42 @@ test('a throwing game update ends the session instead of hanging', async () => {
   assert.equal(host.log.teardown, 1);
   await session.exited;
 });
+
+test('a match-over event records the result in the store exactly once', () => {
+  const game = fakeGame();
+  const recorded = [];
+  const recStore = {
+    load: () => ({ version: 1, pong: { muted: false } }),
+    save: () => true,
+    update(fn) {
+      const d = { version: 1, pong: { gamesPlayed: 0, playerWins: 0, aiWins: 0, bestScore: { left: 0, right: 0 }, muted: false } };
+      recorded.push(fn(d).pong);
+      return d;
+    },
+  };
+  const { session, host } = setup({ game, opts: { store: recStore } });
+  session.start();
+  game.state.events = [];
+  game.state.winner = 0;
+  game.state.score = [11, 7];
+  game.state.events.push('over');
+  host.frame();
+  assert.equal(recorded.length, 1, 'one store update per finished match');
+  assert.equal(recorded[0].gamesPlayed, 1);
+  assert.equal(recorded[0].playerWins, 1);
+  assert.equal(recorded[0].bestScore.left, 11);
+  host.frame();
+  assert.equal(recorded.length, 1, 'must not record again on later frames');
+  session.destroy();
+});
+
+test('a store failure during recording never breaks the session', () => {
+  const game = fakeGame();
+  const badStore = { load: () => ({ version: 1, pong: { muted: false } }), update() { throw new Error('quota'); } };
+  const { session, host } = setup({ game, opts: { store: badStore } });
+  session.start();
+  game.state.events = ['over'];
+  assert.doesNotThrow(() => host.frame());
+  assert.equal(session.getState(), 'running');
+  session.destroy();
+});
