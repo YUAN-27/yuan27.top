@@ -10,6 +10,7 @@ import { commands, commandNames, suggestCommand } from './commands.js';
 import { parse } from './parser.js';
 import { enableWindow } from './windowing.js';
 import { initBackground } from './background.js';
+import { initSound } from './sound.js';
 
 const outputEl = document.getElementById('output');
 const inputEl = document.getElementById('cmd-input');
@@ -77,6 +78,10 @@ async function drain() {
 
 // ---- input events ----
 inputEl.addEventListener('keydown', (e) => {
+  // 输入音效（默认关闭；只在真实按键时发声）
+  if (e.key === 'Enter') sound.enter();
+  else if (e.key.length === 1 || e.key === 'Backspace') sound.key();
+
   if (e.key === 'Enter') {
     e.preventDefault();
     submitLine(inputEl.value);
@@ -142,6 +147,9 @@ initDesktop(document.getElementById('desktop'), ENTRIES, {
 
 // ---- desktop background: low-distraction ambient layer (auto-degrades) ----
 shell.background = initBackground();
+
+// ---- typing sound (默认关闭，`sound on` 开启) ----
+shell.sound = initSound();
 
 // ---- mobile quick buttons ----
 document.querySelectorAll('.mobile-toolbar button').forEach((btn) => {

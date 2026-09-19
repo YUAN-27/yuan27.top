@@ -374,6 +374,31 @@ Usage:
     },
   },
 
+  sound: {
+    category: 'Settings',
+    summary: 'Toggle typing sound',
+    help: `sound - toggle typing sound
+
+Usage:
+    sound          show current state
+    sound on       enable typing sound
+    sound off      disable typing sound`,
+    async run(shell, args) {
+      const s = shell.sound;
+      const arg = args[0];
+      if (!arg) {
+        const on = s && s.isEnabled ? s.isEnabled() : false;
+        return shell.printText([`Typing sound: ${on ? 'on' : 'off'}`], { lineDelay: 0 });
+      }
+      if (arg !== 'on' && arg !== 'off') {
+        return shell.error(`sound: ${arg}: invalid argument (use 'on' or 'off')`);
+      }
+      if (!s || !s.setEnabled) return shell.error('sound: audio unavailable in this browser');
+      const on = s.setEnabled(arg === 'on');
+      return shell.success(`Typing sound ${on ? 'enabled' : 'disabled'}.`);
+    },
+  },
+
   // ---- Fun ----
   coffee: {
     category: 'Fun',

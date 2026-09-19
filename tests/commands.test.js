@@ -244,3 +244,32 @@ test('P1 fun commands are in the Fun category', () => {
     assert.equal(registry[name].category, 'Fun', name);
   }
 });
+
+// ---- P2: sound ----
+test('sound command toggles typing sound (default off)', async () => {
+  const { shell, out } = makeShell();
+  let on = false;
+  shell.sound = { isEnabled: () => on, setEnabled: (v) => { on = !!v; return on; } };
+
+  await commands.sound(shell, []);
+  assert.match(out.at(-1)[1].join(''), /off/);
+
+  await commands.sound(shell, ['on']);
+  assert.equal(on, true);
+  assert.match(out.at(-1)[1], /enabled/);
+
+  await commands.sound(shell, ['off']);
+  assert.equal(on, false);
+  assert.match(out.at(-1)[1], /disabled/);
+});
+
+test('sound command rejects invalid arguments', async () => {
+  const { shell, out } = makeShell();
+  shell.sound = { isEnabled: () => false, setEnabled: () => false };
+  await commands.sound(shell, ['loud']);
+  assert.deepEqual(out[0], ['error', "sound: loud: invalid argument (use 'on' or 'off')"]);
+});
+
+test('sound command is in the Settings category', () => {
+  assert.equal(registry.sound.category, 'Settings');
+});
