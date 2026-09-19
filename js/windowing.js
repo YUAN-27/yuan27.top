@@ -292,5 +292,5 @@ export function enableWindow(el, opts = {}) {
 
   if (active) restoreFromState();
 
-  return { reset, maximize, restore, minimize, unminimize, toggleMaximize };
+  return { reset, maximize, restore, minimize, unminimize, toggleMaximize, isMinimized: () => el.classList.contains('minimized') };
 }

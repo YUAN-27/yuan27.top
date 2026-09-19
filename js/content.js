@@ -89,6 +89,17 @@ export const FUN = {
   ],
 };
 
+// 桌面入口映射：桌面图标 /（未来的）开始菜单、任务栏共用同一份配置。
+// 硬规则：桌面线只服务桌面端；移动端不渲染这些入口（见 docs 1.3.1）。
+export const ENTRIES = [
+  { id: 'about', label: 'About', kind: 'folder', path: '/about' },
+  { id: 'projects', label: 'Projects', kind: 'folder', path: '/projects' },
+  { id: 'blog', label: 'Blog', kind: 'folder', path: '/blog' },
+  { id: 'resume', label: 'Resume', kind: 'file', command: 'resume' },
+  { id: 'contact', label: 'Contact', kind: 'folder', path: '/contact' },
+  { id: 'readme', label: 'Readme.txt', kind: 'doc', command: 'cat readme.md' },
+];
+
 // ------------------------------------------------------------
 // Virtual File System
 //   file types:

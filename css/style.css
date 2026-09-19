@@ -201,6 +201,44 @@ a.link:hover { text-decoration: none; }
   50.01%, 100% { opacity: 0; }
 }
 
+/* ---- desktop shortcuts (desktop-only — hard rule docs 1.3.1) ---- */
+.desktop {
+  position: fixed;
+  top: 18px;
+  left: 18px;
+  z-index: var(--z-icons);
+  display: flex;
+  flex-direction: column;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 4px;
+  max-height: calc(100dvh - 36px);
+}
+.desktop-icon {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 150px;
+  padding: 6px 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.desktop-icon-glyph { display: inline-flex; flex: 0 0 auto; color: var(--dir); }
+.desktop-icon-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.desktop-icon:hover { background: rgba(139, 148, 158, 0.12); color: var(--text); }
+.desktop-icon.selected {
+  background: rgba(88, 166, 255, 0.16);
+  border-color: var(--input);
+  color: var(--text);
+}
+.desktop-icon:focus-visible { outline: 2px solid var(--input); outline-offset: 1px; }
+
 /* ---- window management (desktop) ---- */
 .terminal-window.floating { position: fixed; margin: 0; }
 .terminal-window.minimized { display: none; }
@@ -288,6 +326,7 @@ body.no-select { user-select: none; }
   }
   .mobile-toolbar button:active { background: var(--border); }
   .window-dock { display: none !important; }
+  .desktop { display: none !important; }
 }
 
 /* ---- reduced motion ---- */
