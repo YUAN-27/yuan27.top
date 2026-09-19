@@ -1,5 +1,21 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!--══════════════════════════════════════════════════════════
+    Favicon · ">_" 终端提示符 · 16x16 下依然清晰
+    ★ 自定义项（改对应的 fill/stroke 值即可）：
+      ① 底色     → 第 1 个 rect 的 fill（默认 #1a1a1a，与站点一致）
+      ② 圆角     → 同上 rect 的 rx（默认 7；想方形改 0）
+      ③ 提示符色 → path 的 stroke（默认 #3fb950 绿，站点 --prompt）
+      ④ 光标色   → 第 2 个 rect 的 fill（默认 #58a6ff 蓝，站点 --dir）
+      ⑤ 线条粗细 → stroke-width（默认 4；若 favicon 更小可加到 4.5）
+    设计说明：提示符与光标全部用矢量路径绘制，不依赖字体，
+    任意缩放不糊；笔画在 16px 时仍有 2px 宽，辨识度足够。
+  ══════════════════════════════════════════════════════════-->
+  <!-- ① 底色 + ② 圆角 -->
   <rect width="32" height="32" rx="7" fill="#1a1a1a"/>
-  <path d="M8 9 L15 16 L8 23" fill="none" stroke="#3fb950" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
-  <rect x="18" y="19.5" width="8" height="4" rx="1" fill="#58a6ff"/>
+  <!-- ③ 提示符 ">" -->
+  <path d="M8.5 8.5 L17 16 L8.5 23.5"
+        fill="none" stroke="#3fb950" stroke-width="4"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- ④ 光标 "_" -->
+  <rect x="20" y="19.8" width="7.5" height="4.2" rx="1.2" fill="#58a6ff"/>
 </svg>
