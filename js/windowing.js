@@ -74,6 +74,7 @@ export function enableWindow(el, opts = {}) {
     titleHeight = 40,
     minVisible = 120,
     minLeft = -Infinity,
+    onStateChange = null,
   } = opts;
 
   const mq = window.matchMedia(`(max-width: ${breakpoint}px)`);
@@ -104,6 +105,13 @@ export function enableWindow(el, opts = {}) {
     el.style.left = el.style.top = el.style.width = el.style.height = '';
     el.style.transform = '';
   };
+
+  const getState = () => ({
+    minimized: el.classList.contains('minimized'),
+    maximized: el.classList.contains('maximized'),
+    floating: el.classList.contains('floating'),
+  });
+  const notify = () => { if (typeof onStateChange === 'function') onStateChange(getState()); };
 
   function setCursor(d) {
     for (const k of Object.keys(CURSOR)) el.classList.toggle('cursor-' + k, k === d);
@@ -137,11 +145,13 @@ export function enableWindow(el, opts = {}) {
     el.style.width = '100vw';
     el.style.height = '100dvh';
     saveState();
+    notify();
   }
   function restore() {
     el.classList.remove('maximized');
     if (normal) applyGeom(normal);
     saveState();
+    notify();
   }
   function toggleMaximize() {
     if (el.classList.contains('maximized')) restore(); else maximize();
@@ -152,12 +162,14 @@ export function enableWindow(el, opts = {}) {
     el.classList.add('floating', 'minimized');
     if (dock) dock.hidden = false;
     saveState();
+    notify();
   }
   function unminimize() {
     el.classList.remove('minimized');
     if (dock) dock.hidden = true;
     if (normal) applyGeom(normal);
     saveState();
+    notify();
   }
   function reset() {
     el.classList.remove('floating', 'maximized', 'minimized', 'window-drag');
@@ -166,6 +178,7 @@ export function enableWindow(el, opts = {}) {
     normal = null;
     if (dock) dock.hidden = true;
     clearState();
+    notify();
   }
 
   function restoreFromState() {
@@ -202,6 +215,7 @@ export function enableWindow(el, opts = {}) {
     } else {
       restoreFromState();
     }
+    notify();
   }
 
   // ---- pointer interaction ----
@@ -330,5 +344,9 @@ export function enableWindow(el, opts = {}) {
 
   if (active) restoreFromState();
 
-  return { reset, maximize, restore, minimize, unminimize, toggleMaximize, isMinimized: () => el.classList.contains('minimized') };
+  return {
+    reset, maximize, restore, minimize, unminimize, toggleMaximize,
+    isMinimized: () => el.classList.contains('minimized'),
+    getState,
+  };
 }

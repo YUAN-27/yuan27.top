@@ -2,10 +2,11 @@
 import { Terminal } from './terminal.js';
 import { History } from './history.js';
 import { complete } from './completion.js';
-import { initTheme } from './themes.js';
+import { initTheme, getThemes, currentTheme } from './themes.js';
 import { resolve as resolvePath } from './fs.js';
 import { LOGO, WELCOME, BOOT_LINES, ENTRIES, frameLogo } from './content.js';
 import { initDesktop, makeOpener, DESKTOP_RAIL_WIDTH } from './desktop.js';
+import { initTaskbar, buildMenu, itemCommands } from './taskbar.js';
 import { commands, commandNames, suggestCommand } from './commands.js';
 import { parse } from './parser.js';
 import { enableWindow } from './windowing.js';
@@ -41,6 +42,7 @@ function syncInputSize() {
 }
 
 // Serialized command execution: one command at a time, in order.
+let taskbar = null;
 let running = false;
 const pending = [];
 
@@ -71,6 +73,7 @@ async function drain() {
       } else {
         await handler(shell, parsed.args);
       }
+      if (taskbar) taskbar.setCwd(shell.cwd);
     }
   }
   running = false;
@@ -130,20 +133,57 @@ window.addEventListener('keydown', () => { if (booting) skipBoot = true; });
 // ---- window management: drag / resize / maximize / minimize / reset (desktop only) ----
 const win = enableWindow(windowEl, {
   handle: windowEl.querySelector('.statusbar'),
-  dock: document.getElementById('window-dock'),
   storageKey: 'yuan27.window.v2',
   minLeft: DESKTOP_RAIL_WIDTH,
+  onStateChange: (s) => { if (taskbar) taskbar.setWindowState(s); },
+});
+
+const runEntry = makeOpener({
+  restore: () => { if (win.isMinimized()) win.unminimize(); },
+  focus: () => inputEl.focus(),
+  run: (cmd) => submitLine(cmd),
 });
 
 // ---- desktop shortcuts: 仅桌面端渲染（docs 1.3.1 硬规则）；只负责唤起终端 ----
 initDesktop(document.getElementById('desktop'), ENTRIES, {
-  open: makeOpener({
-    restore: () => { if (win.isMinimized()) win.unminimize(); },
-    focus: () => inputEl.focus(),
-    run: (cmd) => submitLine(cmd),
-  }),
+  open: runEntry,
   refocus() { inputEl.focus(); },
 });
+
+// ---- taskbar + start menu（仅桌面端；菜单项只调用终端命令或已有设置）----
+function menuState() {
+  return {
+    motionOff: shell.background ? shell.background.isMotionOff() : false,
+    soundOn: shell.sound ? shell.sound.isEnabled() : false,
+    themes: getThemes(),
+    theme: currentTheme(),
+  };
+}
+
+taskbar = initTaskbar(document.getElementById('taskbar'), {
+  menu: buildMenu(ENTRIES),
+  onRun(item) {
+    for (const cmd of itemCommands(item, menuState())) submitLine(cmd);
+  },
+  onAction(action) {
+    if (action === 'focus') {
+      if (win.isMinimized()) win.unminimize();
+      win.reset();
+      inputEl.focus();
+    } else if (action === 'reset') {
+      win.reset();
+      submitLine('motion on');
+      submitLine('theme claude');
+      inputEl.focus();
+    }
+  },
+  onWindowClick() {
+    if (win.isMinimized()) win.unminimize();
+    else inputEl.focus();
+  },
+});
+taskbar.setCwd(shell.cwd);
+taskbar.setWindowState(win.getState());
 
 // ---- desktop background: low-distraction ambient layer (auto-degrades) ----
 shell.background = initBackground();
