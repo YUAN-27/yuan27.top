@@ -15,8 +15,11 @@ export const CHAR_RANGES = [
 ];
 
 export const glyphs = {
-  ball: '*',        // 不能用 'O'：菜单 'PONG' 与 'GAME OVER' 文本里就有大写 O，会与球混淆
-  paddle: '█',
+  // 原版 Pong（1972）的球与挡板都是矩形，所以这里用实心块 + 坚线，形状靠长度区分。
+  // 避坑记录：不要用 'O'（菜单 'PONG'、'GAME OVER' 里有大写 O，会与球混淆），
+  // 也不要用 '*'（小字号下辨识度差）。'█'(U+2588) 与 '┃'(U+2503) 均在字体子集内且宽度 600。
+  ball: '█',
+  paddle: '┃',
   tl: '┌', tr: '┐', bl: '└', br: '┘',
   h: '─', v: '│', vl: '├', vr: '┤',
 };

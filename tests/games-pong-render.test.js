@@ -46,13 +46,13 @@ test('render draws two paddles of the expected height inside the field', () => {
   const f = frame();
   const rows = render(s, f);
   const field = rows.slice(f.layout.fieldTop, f.layout.fieldBottom + 1).join('');
-  const blocks = field.split('█').length - 1;
+  const blocks = field.split('┃').length - 1;
   const expectedPer = Math.max(2, Math.round(s.paddles[0].h * f.layout.fieldRows));
-  assert.equal(blocks, expectedPer * 2, 'only the two paddles may draw the block glyph');
+  assert.equal(blocks, expectedPer * 2, 'only the two paddles may draw the vertical-bar glyph');
   // 挡板必须分列在左右两侧
   for (const y of rows.slice(f.layout.fieldTop, f.layout.fieldBottom + 1)) {
-    const left = y.indexOf('█');
-    const right = y.lastIndexOf('█');
+    const left = y.indexOf('┃');
+    const right = y.lastIndexOf('┃');
     if (left >= 0 && right > left) assert.ok(right - left > f.layout.cols / 2, 'paddles must be far apart');
   }
 });
@@ -64,19 +64,20 @@ test('render draws the ball inside the playfield', () => {
   const f = frame();
   const rows = render(s, f);
   const field = rows.slice(f.layout.fieldTop, f.layout.fieldBottom + 1);
-  const cells = field.map((r, i) => ({ r, i })).filter(({ r }) => r.includes('*'));
-  assert.equal(countOf(field, '*'), 1, 'exactly one ball cell must be drawn');
+  const cells = field.map((r, i) => ({ r, i })).filter(({ r }) => r.includes('█'));
+  assert.equal(countOf(field, '█'), 1, 'exactly one ball cell must be drawn');
   assert.equal(cells.length, 1, 'the ball must be a single row');
 });
 
-test('the ball glyph is the only asterisk on screen (no text collision)', () => {
+test('the ball glyph never collides with on-screen text', () => {
   const s = playing();
   const f = frame();
   for (const ph of ['menu', 'serve', 'play', 'gameover']) {
     s.phase = ph;
     const rows = render(s, f);
-    const n = countOf(rows, '*');
-    assert.ok(n === 0 || n === 1, `phase ${ph} drew ${n} asterisks; menu/gameover text must not contain the ball glyph`);
+    const n = countOf(rows, '█');
+    // menu / gameover 不画挡板与球 ⇒ 0；serve / play ⇒ 只有球那 1 个
+    assert.ok(n === 0 || n === 1, `phase ${ph} drew ${n} ball blocks; UI text must not contain the ball glyph`);
   }
 });
 
@@ -88,7 +89,7 @@ test('menu phase shows the mode choices and hides the ball', () => {
   assert.ok(mid.includes('PONG'));
   assert.ok(mid.includes('[1] Single'));
   assert.ok(mid.includes('[2] Two'));
-  assert.ok(!mid.includes('*'), 'the ball must not be drawn in the menu');
+  assert.ok(!mid.includes('█'), 'the ball must not be drawn in the menu');
 });
 
 test('gameover phase shows the winner and final score', () => {

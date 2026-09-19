@@ -1092,8 +1092,10 @@ export const CHAR_RANGES = [
 ];
 
 export const glyphs = {
-  ball: '*',        // 不能用 'O'：菜单 'PONG' 与 'GAME OVER' 文本里就有大写 O，会与球混淆
-  paddle: '█',
+  // 原版 Pong（1972）的球与挡板都是矩形：实心块 + 竖线，靠长度区分。
+  // 不用 'O'（PONG/GAME OVER 含大写 O 会混淆），不用 '*'（辨识度差）。
+  ball: '█',
+  paddle: '┃',
   tl: '┌', tr: '┐', bl: '└', br: '┘',
   h: '─', v: '│', vl: '├', vr: '┤',
 };
@@ -1262,13 +1264,13 @@ test('render draws two paddles of the expected height inside the field', () => {
   const f = frame();
   const rows = render(s, f);
   const field = rows.slice(f.layout.fieldTop, f.layout.fieldBottom + 1).join('');
-  const blocks = field.split('█').length - 1;
+  const blocks = field.split('┃').length - 1;
   const expectedPer = Math.max(2, Math.round(s.paddles[0].h * f.layout.fieldRows));
-  assert.equal(blocks, expectedPer * 2, 'only the two paddles may draw the block glyph');
+  assert.equal(blocks, expectedPer * 2, 'only the two paddles may draw the vertical-bar glyph');
   // 挡板必须分列在左右两侧
   for (const y of rows.slice(f.layout.fieldTop, f.layout.fieldBottom + 1)) {
-    const left = y.indexOf('█');
-    const right = y.lastIndexOf('█');
+    const left = y.indexOf('┃');
+    const right = y.lastIndexOf('┃');
     if (left >= 0 && right > left) assert.ok(right - left > f.layout.cols / 2, 'paddles must be far apart');
   }
 });
@@ -1285,14 +1287,14 @@ test('render draws the ball inside the playfield', () => {
   assert.equal(cells.length, 1, 'the ball must be a single row');
 });
 
-test('the ball glyph is the only asterisk on screen (no text collision)', () => {
+test('the ball glyph never collides with on-screen text', () => {
   const s = playing();
   const f = frame();
   for (const ph of ['menu', 'serve', 'play', 'gameover']) {
     s.phase = ph;
     const rows = render(s, f);
-    const n = countOf(rows, '*');
-    assert.ok(n === 0 || n === 1, `phase ${ph} drew ${n} asterisks; menu/gameover text must not contain the ball glyph`);
+    const n = countOf(rows, '█');
+    assert.ok(n === 0 || n === 1, `phase ${ph} drew ${n} blocks; UI text must not contain the ball glyph`);
   }
 });
 
@@ -3278,3 +3280,11 @@ tests/     1643 行（12 个新测试文件）
 ### 仍未验证（必须浏览器手工过）
 
 Task 10 的真实布局/拖拽/缩放/最大化、焦点陷阱与 Tab、`ResizeObserver`、触摸按钮、`≤640px` 全屏、四主题配色、音效听感、Task 12 的完整验收清单。
+
+### 球字形变更（2026-09-19 部署后，作者要求）
+
+`*` → **`█`**（球）+ 挡板 `█` → **`┃`**，理由：原版 Pong（1972）的球与挡板都是矩形，靠长度区分更贴合原版。
+
+- **零字体改动**：`█`(U+2588) 与 `┃`(U+2503) 都已在现网字体子集内，宽度均 600/1000 = 0.6em。
+- 同步改动：`renderer.js` 的 `glyphs`、4 处测试断言（受影响的 `games-pong-render` / `games-integration`）。
+- 顺带验证过但**未采用**的候选：`●`(U+25CF) / `○`(U+25CB) / `◉`(U+25C9) —— 需重建字体子集（已实测可行：官方 v2.304 源字体 + `pyftsubset`，+3 码点、132 个旧字形轮廓零变化、体积 +284B），留作备选。

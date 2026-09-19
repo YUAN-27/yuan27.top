@@ -152,7 +152,7 @@ test('full chain: mount → menu → play → esc cleans everything up', () => {
     dom.tick(1000 / 30, 60);           // 跑两秒
     assert.ok(session.state.phase === 'play' || session.state.phase === 'gameover');
     const drawn = rowsOf(dom).join('');
-    assert.ok(drawn.includes('*') || session.state.phase === 'gameover', 'the ball must be drawn');
+    assert.ok(drawn.includes('█') || session.state.phase === 'gameover', 'the ball must be drawn');
 
     const escaped = { key: 'Escape', prevented: false, stopped: false, preventDefault() { this.prevented = true; }, stopPropagation() { this.stopped = true; } };
     dom.fire(win, 'keydown', escaped);
