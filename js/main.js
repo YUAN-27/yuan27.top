@@ -4,7 +4,7 @@ import { History } from './history.js';
 import { complete } from './completion.js';
 import { initTheme } from './themes.js';
 import { resolve as resolvePath } from './fs.js';
-import { LOGO, WELCOME } from './content.js';
+import { LOGO, WELCOME, BOOT_LINES } from './content.js';
 import { commands, commandNames } from './commands.js';
 import { parse } from './parser.js';
 import { enableWindow } from './windowing.js';
@@ -106,9 +106,18 @@ inputEl.addEventListener('keydown', (e) => {
 
 inputEl.addEventListener('input', syncInputSize);
 
+// ---- boot / skip state ----
+let booting = true;
+let skipBoot = false;
+const VISITED_KEY = 'yuan27.visited';
+
 // ---- focus & skip ---- 
 windowEl.addEventListener('click', () => inputEl.focus());
-outputEl.addEventListener('click', () => { term.skip = true; });
+outputEl.addEventListener('click', () => {
+  if (booting) skipBoot = true;
+  term.skip = true;
+});
+window.addEventListener('keydown', () => { if (booting) skipBoot = true; });
 
 // ---- window management: drag / resize / maximize / minimize / reset (desktop only) ----
 enableWindow(windowEl, {
@@ -141,10 +150,19 @@ async function boot() {
   startClock();
 
   const logoLines = LOGO.split('\n').filter((l) => l.length > 0);
-  await term.printText(logoLines, { className: 'logo', lineDelay: 90 });
+  // 老访客不再播放慢速动画；点击/按键可跳过
+  const repeat = (() => { try { return !!localStorage.getItem(VISITED_KEY); } catch { return false; } })();
+  const d = (ms) => (repeat || skipBoot ? 0 : ms);
+
+  await term.printText(BOOT_LINES, { className: 'line-muted', lineDelay: d(150) });
   await term.printText([''], { lineDelay: 0 });
-  await term.printText([WELCOME], { lineDelay: 0 });
+  await term.printText(logoLines, { className: 'logo', lineDelay: d(90) });
   await term.printText([''], { lineDelay: 0 });
+  await term.printText(WELCOME, { lineDelay: 0 });
+  await term.printText([''], { lineDelay: 0 });
+
+  booting = false;
+  try { localStorage.setItem(VISITED_KEY, '1'); } catch { /* ignore */ }
 
   // Avoid popping the mobile keyboard on load.
   if (window.matchMedia('(min-width: 640px)').matches) inputEl.focus();

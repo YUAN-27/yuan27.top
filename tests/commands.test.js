@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { commands, commandNames } from '../js/commands.js';
+import { commands, commandNames, registry } from '../js/commands.js';
 import { complete } from '../js/completion.js';
 import { resolve } from '../js/fs.js';
 
@@ -21,6 +21,8 @@ function makeShell(initialCwd = '/') {
   };
   return { shell, out };
 }
+
+const firstOf = (out, kind) => out.find((o) => o[0] === kind)[1];
 
 test('cd changes cwd and pwd prints it', async () => {
   const { shell, out } = makeShell();
@@ -54,7 +56,7 @@ test('cat on binary file prints binary message', async () => {
 test('ls lists directories with trailing slash', async () => {
   const { shell, out } = makeShell('/');
   await commands.ls(shell, []);
-  const html = out.find((o) => o[0] === 'lines')[1].join('');
+  const html = firstOf(out, 'lines').join('');
   assert.match(html, /about\//);
   assert.match(html, /readme\.md/);
 });
@@ -62,9 +64,56 @@ test('ls lists directories with trailing slash', async () => {
 test('tree walks the tree with box characters', async () => {
   const { shell, out } = makeShell('/');
   await commands.tree(shell, []);
-  const text = out.find((o) => o[0] === 'text')[1].join('\n');
-  assert.match(text, /├── about\//);
-  assert.match(text, /└── readme\.md/);
+  const text = firstOf(out, 'text').join('\n');
+  assert.match(text, /── about\//);
+  assert.match(text, /── readme\.md/);
+  assert.match(text, /── projects\//);
+});
+
+test('registry entries are complete', () => {
+  for (const [name, def] of Object.entries(registry)) {
+    assert.ok(def.category, `${name}: category`);
+    assert.ok(def.summary, `${name}: summary`);
+    assert.ok(def.help, `${name}: help`);
+    assert.equal(typeof def.run, 'function', `${name}: run`);
+  }
+  assert.ok(commandNames.includes('neofetch'));
+  assert.ok(commandNames.includes('resume'));
+});
+
+test('help is grouped by category', async () => {
+  const { shell, out } = makeShell();
+  await commands.help(shell, []);
+  const text = firstOf(out, 'text').join('\n');
+  assert.match(text, /^Core$/m);
+  assert.match(text, /^Explore$/m);
+  assert.match(text, /^Profile$/m);
+  assert.match(text, /neofetch/);
+  assert.match(text, /resume/);
+});
+
+test('help <command> shows usage', async () => {
+  const { shell, out } = makeShell();
+  await commands.help(shell, ['cat']);
+  const text = firstOf(out, 'text').join('\n');
+  assert.match(text, /cat - print file contents/);
+  assert.match(text, /Usage:/);
+});
+
+test('help <unknown> errors', async () => {
+  const { shell, out } = makeShell();
+  await commands.help(shell, ['nope']);
+  assert.deepEqual(out[0], ['error', 'help: nope: no help topics match']);
+});
+
+test('neofetch renders profile fields and ascii art', async () => {
+  const { shell, out } = makeShell();
+  await commands.neofetch(shell, []);
+  const html = firstOf(out, 'lines').join('');
+  assert.match(html, /neofetch-art/);
+  assert.match(html, /YUAN27/);
+  assert.match(html, /AI \/ Backend Developer/);
+  assert.match(html, /HUST/);
 });
 
 test('unknown command names are not registered', () => {
@@ -76,6 +125,7 @@ test('tab completion: command, dir and multi-match', () => {
   assert.deepEqual(complete('he', '/', commandNames), { replace: 'help ' });
   assert.deepEqual(complete('cd pro', '/', commandNames), { replace: 'cd projects/' });
   const list = complete('cat projects/', '/', commandNames).list;
-  assert.ok(list.includes('ai-agent/'));
+  assert.ok(list.includes('agent/'));
   assert.ok(list.includes('website/'));
+  assert.ok(list.includes('mips/'));
 });

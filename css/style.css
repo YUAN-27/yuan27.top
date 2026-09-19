@@ -109,6 +109,24 @@ body {
 a.link { color: var(--link); text-decoration: underline; cursor: pointer; }
 a.link:hover { text-decoration: none; }
 
+/* ---- neofetch ---- */
+.neofetch {
+  display: flex;
+  gap: 28px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+.neofetch-art,
+.neofetch-info {
+  margin: 0;
+  font-family: inherit;
+  white-space: pre;
+  line-height: 1.35;
+}
+.neofetch-art { color: var(--prompt); }
+.neofetch-info { color: var(--text); }
+.neofetch-info::first-line { color: var(--input); font-weight: 700; }
+
 /* ---- input line ---- */
 .input-line {
   flex: 0 0 auto;

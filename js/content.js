@@ -2,6 +2,7 @@
 //  YUAN27.top — content
 //  V1: 内容集中在此文件。以后内容多了可迁移为外置 Markdown。
 //  替换真实内容时，只需改这里的字符串（搜「← 替换此处」）。
+//  待补充清单见 docs/2026-09-19-content-tofill.md
 // ============================================================
 
 export const LOGO = String.raw`
@@ -13,7 +14,20 @@ __   ___   _   _    _   _ ____ _____ _
                                              |_|    
 `;
 
-export const WELCOME = "Welcome to YUAN27.top. Type 'help' to get started.";
+// 启动流程（2 秒内、可跳过）
+export const BOOT_LINES = [
+  'Initializing YUAN27...',
+  'Loading profile modules...',
+  'Mounting /about...',
+  'Mounting /projects...',
+  'Mounting /blog...',
+  'Connection established.',
+];
+
+export const WELCOME = [
+  'Welcome to YUAN27.top',
+  'Type "help" to begin.',
+];
 
 export const WHOAMI = `YUAN
 
@@ -24,6 +38,26 @@ Currently:
   → Building AI applications
   → Learning backend engineering
   → Exploring LLM / Agent systems`;
+
+// ← 替换此处：neofetch 的个人信息（全部为占位，待补充真实值）
+export const PROFILE = {
+  user: 'YUAN27',
+  host: 'yuan27.top',
+  role: 'AI / Backend Developer', // ← 替换此处
+  school: 'HUST', // ← 替换此处
+  focus: 'Agent · RAG · Backend', // ← 替换此处
+  projects: '12', // ← 替换此处
+  blog: '24 posts', // ← 替换此处
+  status: 'Building quietly', // ← 替换此处
+};
+
+// neofetch 左侧 ASCII 标识（figlet -f small "YUAN"）
+export const NEOFETCH_ART = [
+  '__   ___   _  _   _  _',
+  '\\ \\ / / | | |/_\\ | \\| |',
+  ' \\ V /| |_| / _ \\| .` |',
+  '  |_|  \\___/_/ \\_\\_|\\_|',
+].join('\n');
 
 // ------------------------------------------------------------
 // Virtual File System
@@ -44,12 +78,13 @@ AI agents and backend systems.
 
 This site is a virtual Unix terminal. Try:
 
-  help             list all commands
-  ls               list files here
-  cd about         go somewhere
-  cat about/bio.md read a file
+  neofetch          who am I
+  help              all commands
+  tree              the whole site
+  cd about          go somewhere
+  cat about/bio.md  read a file
 
-Type 'help' to get started.
+Type 'help' to begin.
 （← 替换此处：写一段欢迎语和站点导览）`,
     },
 
@@ -101,12 +136,12 @@ AI agents, LLM applications, and backend engineering.
     projects: {
       type: 'dir',
       children: {
-        'ai-agent': {
+        agent: {
           type: 'dir',
           children: {
             'readme.md': {
               type: 'file',
-              content: `# ai-agent
+              content: `# agent
 
 An LLM-powered agent project.
 
@@ -169,12 +204,12 @@ Use 'open github' to open the repository.`,
             },
           },
         },
-        cpu: {
+        mips: {
           type: 'dir',
           children: {
             'readme.md': {
               type: 'file',
-              content: `# cpu
+              content: `# mips
 
 MIPS / CPU course design project.
 
@@ -270,7 +305,7 @@ Use 'open github' to open the repository.`,
     contact: {
       type: 'dir',
       children: {
-        'info.md': {
+        'links.md': {
           type: 'file',
           content: `# Contact
 
