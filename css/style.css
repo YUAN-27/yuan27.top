@@ -285,6 +285,68 @@ a.link:hover { text-decoration: none; }
   border-radius: 0;
   box-shadow: none;
 }
+
+/* ---- terminal arcade: game session window ---- */
+.game-window {
+  z-index: calc(var(--z-window) + 10);
+  min-width: 320px;
+}
+.game-screen {
+  flex: 1 1 auto;
+  margin: 0;
+  padding: 8px 10px;
+  overflow: auto;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: 1.2;
+  color: var(--text);
+  background: var(--bg);
+  white-space: pre;
+  tab-size: 1;
+  outline: none;
+}
+.game-row { white-space: pre; }
+.game-footer {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.game-touch { display: none; }
+.game-touch[hidden] { display: none; }
+
+/* ≤640px：窗口规则已由 .terminal-window 通配成全屏；这里只打开触摸控制 */
+@media (max-width: 640px) {
+  .game-touch {
+    display: flex;
+    gap: 10px;
+    padding: 8px 12px;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--border);
+    background: var(--bg-elevated);
+  }
+  .game-touch-btn {
+    flex: 1 1 0;
+    min-height: 48px;
+    font: inherit;
+    font-size: 18px;
+    color: var(--text);
+    background: var(--input);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .game-touch-btn:active,
+  .game-touch[data-active] .game-touch-btn[data-active] { color: var(--dir); }
+  .game-footer { font-size: 12px; }
+}
 body.no-select { user-select: none; }
 
 /* force the right cursor over the whole window while hovering edges / dragging */
