@@ -1,8 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630">
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
   <rect width="1200" height="630" fill="#1a1a1a"/>
-  <rect x="40" y="40" width="1120" height="550" rx="16" fill="none" stroke="#30363d" stroke-width="2"/>
-  <text x="80" y="250" font-family="monospace" font-size="80" fill="#3fb950">❯</text>
-  <text x="170" y="258" font-family="monospace" font-size="80" fill="#58a6ff">YUAN27.top</text>
-  <text x="80" y="390" font-family="monospace" font-size="34" fill="#e6e6e6">AI / Backend / Portfolio — a terminal-style personal site</text>
-  <text x="80" y="470" font-family="monospace" font-size="26" fill="#8b949e">Type 'help' to get started.</text>
+  <rect x="40" y="40" width="1120" height="550" rx="16" fill="#161b22" stroke="#30363d" stroke-width="2"/>
+  <circle cx="82" cy="82" r="9" fill="#ff5f56"/>
+  <circle cx="112" cy="82" r="9" fill="#ffbd2e"/>
+  <circle cx="142" cy="82" r="9" fill="#27c93f"/>
+  <text x="80" y="235" font-family="JetBrains Mono" font-size="76" fill="#3fb950">❯</text>
+  <text x="165" y="243" font-family="JetBrains Mono" font-size="76" font-weight="bold" fill="#58a6ff">YUAN27.top</text>
+  <text x="82" y="345" font-family="JetBrains Mono" font-size="34" fill="#e6e6e6">AI / Agent / Backend Development</text>
+  <text x="82" y="412" font-family="JetBrains Mono" font-size="28" fill="#8b949e">A terminal-style personal portfolio</text>
+  <text x="82" y="512" font-family="JetBrains Mono" font-size="30" fill="#3fb950">❯</text>
+  <text x="118" y="512" font-family="JetBrains Mono" font-size="30" fill="#e6e6e6">help</text>
+  <rect x="192" y="490" width="17" height="30" fill="#e6e6e6"/>
 </svg>
