@@ -10,6 +10,17 @@ export const RESIZE_BORDER = 6;
 export const MIN_W = 480;
 export const MIN_H = 320;
 
+// 默认（进入网页时）窗口大小：随视口自适应放大，但不小于最小值。
+export const DEFAULT_W = 1200;
+export const DEFAULT_H = 800;
+
+// 纯函数：根据视口算出默认几何（最大 1200×800，占视口 92% × 86%）。
+export function defaultGeom(viewport, minW = MIN_W, minH = MIN_H) {
+  const w = Math.max(minW, Math.min(DEFAULT_W, Math.round(viewport.width * 0.92), viewport.width));
+  const h = Math.max(minH, Math.min(DEFAULT_H, Math.round(viewport.height * 0.86), viewport.height));
+  return { w, h };
+}
+
 const CURSOR = {
   n: 'ns-resize', s: 'ns-resize', e: 'ew-resize', w: 'ew-resize',
   ne: 'nesw-resize', sw: 'nesw-resize', nw: 'nwse-resize', se: 'nwse-resize',
@@ -150,9 +161,10 @@ export function enableWindow(el, opts = {}) {
     const s = loadState();
     if (!s) return;
     const vp = viewport();
+    const def = defaultGeom(vp, minW, minH);
     const g = {
-      w: Math.max(minW, Math.min(s.w || 900, vp.width)),
-      h: Math.max(minH, Math.min(s.h || 640, vp.height)),
+      w: Math.max(minW, Math.min(s.w || def.w, vp.width)),
+      h: Math.max(minH, Math.min(s.h || def.h, vp.height)),
       left: s.left || 0,
       top: s.top || 0,
     };

@@ -124,7 +124,7 @@ window.addEventListener('keydown', () => { if (booting) skipBoot = true; });
 enableWindow(windowEl, {
   handle: windowEl.querySelector('.statusbar'),
   dock: document.getElementById('window-dock'),
-  storageKey: 'yuan27.window.v1',
+  storageKey: 'yuan27.window.v2',
 });
 
 // ---- desktop background: low-distraction ambient layer (auto-degrades) ----

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { hitDir, resizeRect, clampPosition, RESIZE_BORDER, MIN_W, MIN_H } from '../js/windowing.js';
+import { hitDir, resizeRect, clampPosition, RESIZE_BORDER, MIN_W, MIN_H, defaultGeom } from '../js/windowing.js';
 import { LOGO } from '../js/content.js';
 
 // A 500x400 window at (100,100) — above the 420x300 minimum.
@@ -70,4 +70,20 @@ test('MIN_H fits the logo plus the window chrome', () => {
   const logoLines = LOGO.split('\n').filter((l) => l.length > 0).length;
   const needed = Math.ceil(logoLines * 1.6 * 14) + 36 /*statusbar*/ + 43 /*input*/ + 32 /*padding*/;
   assert.ok(MIN_H >= needed, `MIN_H=${MIN_H} < ${needed}`);
+});
+
+test('defaultGeom: big by default, clamped to min and viewport', () => {
+  // Large screen -> capped at 1200x800.
+  assert.deepEqual(defaultGeom({ width: 1920, height: 1080 }), { w: 1200, h: 800 });
+  // Shorter viewport -> height follows the viewport (86%).
+  assert.deepEqual(defaultGeom({ width: 1366, height: 657 }), { w: 1200, h: 565 });
+  // Small desktop window -> scales down but stays above the minimum.
+  assert.deepEqual(defaultGeom({ width: 800, height: 600 }), { w: 736, h: 516 });
+  // Never below the minimum size.
+  assert.deepEqual(defaultGeom({ width: 500, height: 340 }), { w: 480, h: 320 });
+  // Always bigger than the minimum on a normal desktop.
+  for (const vp of [{ width: 1440, height: 900 }, { width: 1280, height: 720 }]) {
+    const g = defaultGeom(vp);
+    assert.ok(g.w > MIN_W && g.h > MIN_H, `${vp.width}x${vp.height} -> ${g.w}x${g.h}`);
+  }
 });

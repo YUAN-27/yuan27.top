@@ -59,10 +59,10 @@ body[data-bg="gradient"] {
 .terminal-window {
   position: relative;
   z-index: var(--z-window);
-  width: 900px;
+  width: min(1200px, 92vw);
+  height: min(800px, 86vh);
+  height: min(800px, 86dvh);
   max-width: 100%;
-  height: 640px;
-  max-height: 100vh;
   max-height: 100dvh;
   display: flex;
   flex-direction: column;
