@@ -12,7 +12,8 @@ export const GAME_STORAGE_KEY = 'yuan27.arcade.window.v1';
 export const GAME_MIN_W = 420;
 export const GAME_MIN_H = 260;
 
-export function createHost({ mount = null, railWidth = 0, focusInput = null } = {}) {
+// ⚠️ 挂载点参数命名为 container：若叫 mount 会被下面同名的 function mount() 声明提升覆盖（已踩过）
+export function createHost({ mount: container = null, railWidth = 0, focusInput = null } = {}) {
   const offs = [];
   const listeners = { resize: new Set(), visibility: new Set(), blur: new Set(), focus: new Set(), keydown: new Set(), keyup: new Set() };
   const emit = (kind, arg) => { for (const cb of [...listeners[kind]]) { try { cb(arg); } catch { /* ignore */ } } };
@@ -28,16 +29,21 @@ export function createHost({ mount = null, railWidth = 0, focusInput = null } = 
   function measure() {
     if (!screen) return;
     if (!measurer) {
+      const cs0 = getComputedStyle(screen);
       measurer = document.createElement('span');
-      measurer.style.cssText = 'position:absolute;visibility:hidden;white-space:pre;font:inherit';
+      measurer.style.cssText = 'position:absolute;visibility:hidden;white-space:pre;pointer-events:none';
+      measurer.style.font = cs0.font || 'inherit';
       measurer.textContent = '0'.repeat(100);
-      screen.appendChild(measurer);
+      // 挂到窗口根节点，**不能**挂进 screen：paint() 首次重建会 textContent='' 把它清掉
+      (root || screen).appendChild(measurer);
     }
     const r = measurer.getBoundingClientRect();
     cells.cellW = r.width > 0 ? r.width / 100 : 8;
     const cs = getComputedStyle(screen);
     const lh = parseFloat(cs.lineHeight);
-    cells.lineH = Number.isFinite(lh) && lh > 0 ? lh : 16;
+    const fs = parseFloat(cs.fontSize) || 16;
+    // line-height 可能算成纯倍数（如 1.2）也可能是 px，两种都要处理
+    cells.lineH = !Number.isFinite(lh) || lh <= 0 ? 16 : (lh > 4 ? lh : lh * fs);
     const box = screen.getBoundingClientRect();
     cells.cols = Math.floor(box.width / cells.cellW);
     cells.rows = Math.floor(box.height / cells.lineH);
@@ -49,7 +55,7 @@ export function createHost({ mount = null, railWidth = 0, focusInput = null } = 
   }
 
   function mount(opts = {}) {
-    if (!mount || typeof document === 'undefined') return { root: null, screen: null, touch: null };
+    if (!container || typeof document === 'undefined') return { root: null, screen: null, touch: null };
 
     root = document.createElement('section');
     root.className = 'terminal-window game-window';
@@ -94,7 +100,7 @@ export function createHost({ mount = null, railWidth = 0, focusInput = null } = 
     footerEl.textContent = opts.statusLine || '';
 
     root.append(header, screen, touchEl, footerEl);
-    mount.appendChild(root);
+    container.appendChild(root);
 
     win = enableWindow(root, {
       handle: header,
