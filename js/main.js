@@ -7,6 +7,7 @@ import { resolve as resolvePath } from './fs.js';
 import { LOGO, WELCOME, BOOT_LINES, ENTRIES, frameLogo } from './content.js';
 import { initDesktop, makeOpener, DESKTOP_RAIL_WIDTH } from './desktop.js';
 import { initTaskbar, buildMenu, itemCommands } from './taskbar.js';
+import { makeKeyHandler } from './keys.js';
 import { commands, commandNames, suggestCommand } from './commands.js';
 import { parse } from './parser.js';
 import { enableWindow } from './windowing.js';
@@ -43,6 +44,7 @@ function syncInputSize() {
 
 // Serialized command execution: one command at a time, in order.
 let taskbar = null;
+let sound = null;
 let running = false;
 const pending = [];
 
@@ -80,41 +82,21 @@ async function drain() {
 }
 
 // ---- input events ----
-inputEl.addEventListener('keydown', (e) => {
-  // 输入音效（默认关闭；只在真实按键时发声）
-  if (e.key === 'Enter') sound.enter();
-  else if (e.key.length === 1 || e.key === 'Backspace') sound.key();
-
-  if (e.key === 'Enter') {
-    e.preventDefault();
-    submitLine(inputEl.value);
-  } else if (e.key === 'ArrowUp') {
-    e.preventDefault();
-    inputEl.value = history.up(inputEl.value);
-    syncInputSize();
-  } else if (e.key === 'ArrowDown') {
-    e.preventDefault();
-    inputEl.value = history.down();
-    syncInputSize();
-  } else if (e.key === 'Tab') {
-    e.preventDefault();
-    const r = complete(inputEl.value, shell.cwd, commandNames);
-    if (r) {
-      if (r.replace) {
-        inputEl.value = r.replace;
-        syncInputSize();
-      } else if (r.list) {
-        term.appendHint(r.list.join('   '));
-      }
-    }
-  } else if (e.key === 'Escape') {
-    inputEl.value = '';
-    syncInputSize();
-  } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-    // Keep the caret at the end so the block cursor stays predictable.
-    e.preventDefault();
-  }
-});
+inputEl.addEventListener('keydown', makeKeyHandler({
+  input: inputEl,
+  submit: submitLine,
+  history,
+  complete,
+  commandNames,
+  getCwd: () => shell.cwd,
+  appendHint: (text) => term.appendHint(text),
+  afterInput: syncInputSize,
+  onKey: (e) => {
+    if (!sound) return;
+    if (e.key === 'Enter') sound.enter();
+    else if (e.key.length === 1 || e.key === 'Backspace') sound.key();
+  },
+}));
 
 inputEl.addEventListener('input', syncInputSize);
 
@@ -189,7 +171,8 @@ taskbar.setWindowState(win.getState());
 shell.background = initBackground();
 
 // ---- typing sound (默认关闭，`sound on` 开启) ----
-shell.sound = initSound();
+sound = initSound();
+shell.sound = sound;
 
 // ---- mobile quick buttons ----
 document.querySelectorAll('.mobile-toolbar button').forEach((btn) => {

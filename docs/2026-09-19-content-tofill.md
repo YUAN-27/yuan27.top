@@ -38,17 +38,18 @@
 
 ## C. `projects/`（agent / rag / backend / mips / website）
 
-每个 `readme.md` 统一需要：
+**已统一成固定 6 字段格式**（顺序固定，`cat projects/<name>/readme.md` 可看）：
 
-- 项目名 / 简介
-- 技术栈
-- 背景
-- 核心功能
-- 技术难点
-- 个人贡献
-- 状态（进行中 / 已完成 / 归档）
+| 字段 | 需要你提供 |
+|---|---|
+| `Name` | 项目名（已填目录名） |
+| `Summary` | 一句话说明这是什么 |
+| `Tech Stack` | 技术栈，用 `·` 分隔 |
+| `Highlights` | 2–3 条亮点，用 `·` 分隔 |
+| `Links` | 已有 `'open github'`；有 Demo / 截图再加 |
+| `Status` | 进行中 / 已完成 / 已归档 |
 
-每个目录下的 `github` 链接文件目前是占位 URL（仓库名占位，账号已用 `YUAN-27`），需要真实仓库地址；如有 Demo / 截图也一并提供。
+每个目录下的 `github` 链接文件目前是占位 URL（账号已改为 `YUAN-27`，仓库名占位），需要真实仓库地址。
 
 > 注：目录名已按路线图对齐（`ai-agent` → `agent`，`cpu` → `mips`），`backend` 与 `experience.md` 作为额外内容保留，如需删除请告知。
 
@@ -56,8 +57,17 @@
 
 ## D. `blog/`（ai / cs / thoughts）
 
-每个分类下的 `.md` 需要：标题、日期、正文（或站外真实文章链接）。
-当前 `llm-agents.md`、`os-notes.md`、`hello-world.md` 均为占位。
+每篇 `.md` 顶部已有元信息模板：
+
+| 字段 | 需要你提供 |
+|---|---|
+| `title`（文件属性 + 正文 `# 标题`） | 文章标题（已填占位） |
+| `date` | 发布日期 |
+| `tags` | 标签，用 `·` 分隔 |
+| `link` | 站外真实文章链接（**填了就能用 `open blog/ai/xxx.md` 打开**） |
+| 正文 | 文章内容 |
+
+`ls blog/ai` 会直接显示文章标题（文件名附在后面）。当前 3 篇均为占位。
 
 ---
 
