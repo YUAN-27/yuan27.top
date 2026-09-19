@@ -13,6 +13,8 @@ import { parse } from './parser.js';
 import { enableWindow } from './windowing.js';
 import { initBackground } from './background.js';
 import { initSound } from './sound.js';
+import { createSession } from './games/session.js';
+import { createHost } from './games/host.js';
 
 const outputEl = document.getElementById('output');
 const inputEl = document.getElementById('cmd-input');
@@ -178,6 +180,24 @@ shell.background = initBackground();
 // ---- typing sound (默认关闭，`sound on` 开启) ----
 sound = initSound();
 shell.sound = sound;
+
+// ---- terminal arcade: 宿主能力注入（games/arcade.js 不碰 DOM，由装配层这里提供）----
+shell.ui = {
+  sfx: {
+    paddle: () => sound.blip(440, 0.03, 0.03),
+    wall: () => sound.blip(300, 0.02, 0.022),
+    score: () => sound.blip(180, 0.08, 0.03),
+    over: () => sound.blip(120, 0.18, 0.035, 'triangle'),
+  },
+  openGameSession({ game, store, sfx, title }) {
+    const host = createHost({
+      mount: document.body,
+      railWidth: DESKTOP_RAIL_WIDTH,
+      focusInput: inputEl,
+    });
+    return createSession({ game, host, sfx, store, title });
+  },
+};
 
 // ---- mobile quick buttons ----
 document.querySelectorAll('.mobile-toolbar button').forEach((btn) => {

@@ -4,6 +4,7 @@ import { getNode, resolve as resolvePath } from './fs.js';
 import { WHOAMI, PROFILE, NEOFETCH_ART, FUN } from './content.js';
 import { getThemes, setTheme, currentTheme } from './themes.js';
 import { closest } from './suggest.js';
+import { runArcade } from './games/arcade.js';
 
 const escapeHtml = (s) =>
   String(s).replace(/[&<>"']/g, (c) => ({
@@ -445,6 +446,33 @@ Usage:
       for (let i = 0; i < FUN.sudoHire.length; i++) {
         await shell.printText([FUN.sudoHire[i]], { lineDelay: i < 3 ? 500 : 60 });
       }
+    },
+  },
+
+  // ---- Fun - 终端街机（独立 Game Terminal Session，见 docs/2026-09-19-terminal-arcade-spec.md）----
+  arcade: {
+    category: 'Fun',
+    summary: 'Launch terminal arcade games',
+    help: `arcade - launch terminal arcade games
+
+Usage:
+    arcade                 list games
+    arcade <game>          launch a game in its own terminal session
+    arcade --list          list games
+    arcade --help          show this help
+    arcade --reset         reset arcade data (scores, mute)
+
+Pong controls:
+    W / S                  move player 1 paddle
+    Up / Down              move player 2 paddle (two-player mode)
+    Space                  serve / play again
+    M                      mute game sound only
+    ESC / Q                quit the game session
+
+Example:
+    arcade pong`,
+    async run(shell, args) {
+      return runArcade(shell, args);
     },
   },
 };

@@ -56,5 +56,13 @@ export function initSound() {
     },
     key() { blip(470 + Math.random() * 70, 0.022, 0.022); },
     enter() { blip(300, 0.05, 0.03); },
+
+    // 通用音效入口（Arcade 使用）。安全失败：任何异常都不得影响调用方。
+    blip(freq = 440, dur = 0.03, gain = 0.03, type = 'square') {
+      try {
+        if (!Number.isFinite(freq) || !Number.isFinite(dur) || !Number.isFinite(gain)) return;
+        blip(Math.max(20, Math.min(12000, freq)), Math.max(0.005, Math.min(1, dur)), Math.max(0.0001, Math.min(0.3, gain)), type);
+      } catch { /* ignore */ }
+    },
   };
 }
