@@ -537,6 +537,33 @@ test('dt is clamped so a huge frame gap cannot teleport the ball', () => {
   assert.ok(Math.abs(s.ball.x - before) <= C.SPEED_MAX * C.DT_MAX + 1e-6);
 });
 
+test('serve countdown uses real dt while motion stays clamped', () => {
+  const s = newGame();
+  handleKey(s, '1');
+  assert.equal(s.phase, 'serve');
+  // 倒计时是时钟：一次传入 0.901s 就应该发球（若用夹断后的 0.05s 则永远发不出去）
+  update(s, C.SERVE_DELAY + 0.001, {});
+  assert.equal(s.phase, 'play');
+  // 同一帧不得因大 dt 而瞬移：launch() 当次直接返回
+  assert.equal(s.ball.x, 0.5);
+  // 下一帧的大 dt 被夹断
+  const x = s.ball.x;
+  update(s, 5, {});
+  assert.ok(Math.abs(s.ball.x - x) <= C.SPEED_MAX * C.DT_MAX + 1e-6);
+});
+
+test('non-finite dt is ignored instead of corrupting state', () => {
+  const s = newGame();
+  handleKey(s, '1');
+  update(s, C.SERVE_DELAY + 0.001, {});
+  const snap = { x: s.ball.x, y: s.ball.y, d: s.serveDelay };
+  for (const bad of [NaN, Infinity, -1, undefined]) {
+    update(s, bad, {});
+    assert.ok(Number.isFinite(s.ball.x) && Number.isFinite(s.ball.y), `dt=${bad} corrupted the ball`);
+  }
+  assert.deepEqual({ x: s.ball.x, y: s.ball.y, d: s.serveDelay }, snap);
+});
+
 test('handleKey only consumes menu/gameover keys', () => {
   const s = newGame();
   assert.equal(handleKey(s, 'x'), false);
@@ -722,14 +749,19 @@ export function update(state, dt, axes = {}) {
   state.events = [];
   if (state.phase === 'menu' || state.phase === 'gameover') return state;
 
-  const step = Math.min(Math.max(dt, 0), C.DT_MAX);
+  // 两个不同的 dt，职责不同（不要合并）：
+  //   raw  = 真实时间，用于「时钟」（发球倒计时）；
+  //   step = 夹断后的时间，用于「物理」（挡板/球），防止卡顿后瞬移与穿透。
+  const raw = Number.isFinite(dt) && dt > 0 ? dt : 0;
+  const step = Math.min(raw, C.DT_MAX);
 
   movePaddle(state, 0, (axes.up1 ? -1 : 0) + (axes.down1 ? 1 : 0), step);
   if (state.mode === 'two') movePaddle(state, 1, (axes.up2 ? -1 : 0) + (axes.down2 ? 1 : 0), step);
   else moveAI(state, 1, step);
 
   if (state.phase === 'serve') {
-    state.serveDelay -= step;
+    state.serveDelay -= raw;
+    // launch() 设完速度就 return，因此这一次 update 里球不会带着大 dt 移动
     if (state.serveDelay <= 0) launch(state);
     return state;
   }
@@ -769,7 +801,7 @@ export function statusLine(state) {
 - [ ] **Step 4: 运行测试确认通过**
 
 Run: `node --test tests/games-pong.test.js`
-Expected: PASS（16 个测试）
+Expected: PASS（18 个测试）
 
 - [ ] **Step 5: 回归 + 提交**
 
@@ -811,14 +843,14 @@ const playing = () => {
 
 test('AI only tracks when the ball approaches it', () => {
   const s = playing();
-  s.vel = { x: -C.SPEED0, y: 0 };
-  const before = s.paddles[1].y;
   s.paddles[1].y = 0;
+  s.ball.y = 0.9;
+  s.vel = { x: -C.SPEED0, y: 0 };            // 球远离 AI
   update(s, 0.1, {});
   assert.equal(s.paddles[1].y, 0, 'AI must hold still while the ball moves away');
-  s.vel = { x: C.SPEED0, y: 0 };
+  s.vel = { x: C.SPEED0, y: 0 };             // 球朝 AI 飞来
   update(s, 0.1, {});
-  assert.ok(s.paddles[1].y > before, 'AI must chase when the ball approaches');
+  assert.ok(s.paddles[1].y > 0, 'AI must chase when the ball approaches');
 });
 
 test('AI respects a dead zone (no jitter)', () => {
@@ -922,9 +954,15 @@ import {
 } from '../js/games/renderer.js';
 
 test('whitelist is exactly the font subset ranges', () => {
-  const ok = [' ', '~', 'A', 'z', '0', '─', '│', '┌', '┐', '└', '┘', '├', '┤', '█', '→', '❯'];
-  for (const ch of ok) assert.ok(isAllowedChar(ch), `should allow ${ch}`);
-  for (const ch of ['●', '↑', '↓', '╔', '你', 'é']) assert.ok(!isAllowedChar(ch), `should reject ${ch}`);
+  // 允许：ASCII + 边界值 U+257F / U+2588 / U+276F / U+2192
+  // ⚠️ U+2554（╔）落在 U+2500–257F 区间内，是合法的，不能拿来当反例
+  for (const ch of [' ', '~', 'A', 'z', '0', '─', '│', '┌', '┐', '└', '┘', '├', '┤', '█', '→', '❯', '╔', '\u257f']) {
+    assert.ok(isAllowedChar(ch), `should allow ${ch}`);
+  }
+  // 拒绝：半块/点/箭头/汉字/重音，以及区间边界外一格
+  for (const ch of ['●', '↑', '↓', '▄', '▀', '\u24ff', '\u2590', '你', 'é', '·']) {
+    assert.ok(!isAllowedChar(ch), `should reject ${ch}`);
+  }
   assert.equal(CHAR_RANGES.length, 5);
 });
 
@@ -970,10 +1008,12 @@ test('layoutFor keeps the playfield strictly inside the frame', () => {
   assert.equal(L.rows, 24);
   assert.equal(L.scoreRow, 3);
   assert.equal(L.fieldTop, 4);
-  assert.equal(L.fieldBottom, 20);
-  assert.equal(L.fieldRows, 17);
+  assert.equal(L.fieldBottom, 22);
+  assert.equal(L.fieldRows, 19);
   assert.equal(L.innerW, 78);
   assert.equal(L.cx, 40);
+  // 场内行必须严格落在边框内部
+  assert.ok(L.fieldTop > 2 && L.fieldBottom < L.rows - 1);
 });
 
 test('layoutFor clamps to sane bounds and works at the minimum grid', () => {
@@ -996,10 +1036,12 @@ test('buildFrame produces a full grid with title and footer inside the whitelist
 test('buildFrame draws a dashed center line only inside the playfield', () => {
   const { grid, layout } = buildFrame({ title: 'T', cols: 41, rows: 20 });
   const col = layout.cx;
-  assert.equal(grid[layout.fieldTop - 1][col], '─', 'score row must not contain the center line');
+  assert.equal(grid[layout.scoreRow][col], ' ', 'the score row must stay empty at the center');
+  assert.equal(grid[0][col], '─', 'the top border must not be the center line');
   assert.equal(grid[layout.fieldTop][col], '│');
-  assert.equal(grid[layout.fieldTop + 1][col], ' ');
-  assert.equal(grid[layout.fieldBottom][col], '│');
+  assert.equal(grid[layout.fieldTop + 1][col], ' ', 'the center line must be dashed');
+  assert.equal(grid[layout.fieldTop + 2][col], '│');
+  assert.equal(grid[layout.fieldBottom][col], '│', 'the last field row must still be dashed');
 });
 
 test('gridToString returns the same rows as an array', () => {
@@ -1049,7 +1091,7 @@ export const CHAR_RANGES = [
 ];
 
 export const glyphs = {
-  ball: 'O',
+  ball: '*',        // 不能用 'O'：菜单 'PONG' 与 'GAME OVER' 文本里就有大写 O，会与球混淆
   paddle: '█',
   tl: '┌', tr: '┐', bl: '└', br: '┘',
   h: '─', v: '│', vl: '├', vr: '┤',
@@ -1101,7 +1143,7 @@ export function layoutFor(cols, rows) {
   // 结构: 0 上边框 / 1 标题 / 2 分隔 / 3 比分 / 4..r-5 场内 / r-4 分隔 / r-3 底栏 / r-2 ? / r-1 下边框
   const scoreRow = 3;
   const fieldTop = 4;
-  const fieldBottom = r - 5;
+  const fieldBottom = r - 2;      // 底栏是 DOM 元素（.game-footer），网格内不再预留底栏行
   return {
     cols: c,
     rows: r,
@@ -1123,7 +1165,6 @@ export function buildFrame({ title = '', cols = 80, rows = 24 } = {}) {
   box(grid, 0, 0, c, r);
   blit(grid, 1, 1, String(title).slice(0, c - 2));
   blit(grid, 0, 2, glyphs.vl + glyphs.h.repeat(c - 2) + glyphs.vr);
-  blit(grid, 0, r - 4, glyphs.vl + glyphs.h.repeat(c - 2) + glyphs.vr);
 
   // 虚线中线：隔行画一个 │（不用 U+250A，保证子集内字形一定存在）
   for (let y = layout.fieldTop; y <= layout.fieldBottom; y++) {
@@ -1186,6 +1227,17 @@ function frame(cols = 60, rows = 20) {
 
 const countOf = (grid, ch) => grid.join('').split(ch).length - 1;   // 供后续断言复用
 
+// 显式进入对局：phase='menu' 时 render() 走菜单分支直接 return，
+// 不设 phase 的「渲染测试」会空转（数到的是菜单文本里的字符）。
+function playing(score = [0, 0]) {
+  const s = createGame({ rng: () => 0.5 });
+  s.phase = 'play';
+  s.score = score;
+  s.speed = 0.5;
+  s.vel = { x: 0.5, y: 0 };
+  return s;
+}
+
 test('render returns one row per layout row, all whitelisted', () => {
   const s = createGame({ rng: () => 0.5 });
   const f = frame();
@@ -1205,7 +1257,7 @@ test('render draws the score on the score row', () => {
 });
 
 test('render draws two paddles of the expected height inside the field', () => {
-  const s = createGame({ rng: () => 0.5 });
+  const s = playing();
   const f = frame();
   const rows = render(s, f);
   const field = rows.slice(f.layout.fieldTop, f.layout.fieldBottom + 1).join('');
@@ -1221,15 +1273,26 @@ test('render draws two paddles of the expected height inside the field', () => {
 });
 
 test('render draws the ball inside the playfield', () => {
-  const s = createGame({ rng: () => 0.5 });
+  const s = playing();
   s.ball.x = 0.5;
   s.ball.y = 0.5;
   const f = frame();
   const rows = render(s, f);
-  const hits = rows
-    .map((r, i) => ({ r, i }))
-    .filter(({ r, i }) => i >= f.layout.fieldTop && i <= f.layout.fieldBottom && r.includes('O'));
-  assert.equal(hits.length, 1, 'exactly one ball cell');
+  const field = rows.slice(f.layout.fieldTop, f.layout.fieldBottom + 1);
+  const cells = field.map((r, i) => ({ r, i })).filter(({ r }) => r.includes('*'));
+  assert.equal(countOf(field, '*'), 1, 'exactly one ball cell must be drawn');
+  assert.equal(cells.length, 1, 'the ball must be a single row');
+});
+
+test('the ball glyph is the only asterisk on screen (no text collision)', () => {
+  const s = playing();
+  const f = frame();
+  for (const ph of ['menu', 'serve', 'play', 'gameover']) {
+    s.phase = ph;
+    const rows = render(s, f);
+    const n = countOf(rows, '*');
+    assert.ok(n === 0 || n === 1, `phase ${ph} drew ${n} asterisks; menu/gameover text must not contain the ball glyph`);
+  }
 });
 
 test('menu phase shows the mode choices and hides the ball', () => {
@@ -1240,7 +1303,7 @@ test('menu phase shows the mode choices and hides the ball', () => {
   assert.ok(mid.includes('PONG'));
   assert.ok(mid.includes('[1] Single'));
   assert.ok(mid.includes('[2] Two'));
-  assert.ok(!mid.includes('O'));
+  assert.ok(!mid.includes('*'), 'the ball must not be drawn in the menu');
 });
 
 test('gameover phase shows the winner and final score', () => {
@@ -1249,7 +1312,7 @@ test('gameover phase shows the winner and final score', () => {
   s.winner = 0;
   s.phase = 'gameover';
   const f = frame();
-  const mid = render(s, f).slice(s.phase === 'gameover' ? f.layout.fieldTop : 0, f.layout.fieldBottom + 1).join('\n');
+  const mid = render(s, f).slice(f.layout.fieldTop, f.layout.fieldBottom + 1).join('\n');
   assert.ok(mid.includes('PLAYER 1 WINS') || mid.includes('WINS'));
   assert.ok(mid.includes('11'));
   assert.ok(mid.includes('04'));
@@ -1277,7 +1340,7 @@ test('render preserves the static frame (only dynamic rows differ)', () => {
 });
 
 test('render never writes outside the playfield for extreme positions', () => {
-  const s = createGame({ rng: () => 0.5 });
+  const s = playing();
   const f = frame();
   for (const [x, y] of [[0, 0], [1, 1], [0, 1], [1, 0], [-0.5, 0.5], [0.5, 2]]) {
     s.ball.x = x;
@@ -1285,6 +1348,13 @@ test('render never writes outside the playfield for extreme positions', () => {
     const rows = render(s, f);
     assert.equal(rows.length, f.layout.rows);
     assert.ok(withinWhitelist(rows));
+    const changed = diffRows(f.staticRows, rows);
+    for (const i of changed) {
+      assert.ok(
+        i === f.layout.scoreRow || (i >= f.layout.fieldTop && i <= f.layout.fieldBottom),
+        `ball at (${x},${y}) wrote row ${i} outside the playfield`,
+      );
+    }
   }
 });
 ```
@@ -1371,7 +1441,7 @@ export function render(state, frame) {
 - [ ] **Step 4: 运行测试确认通过**
 
 Run: `node --test tests/games-pong-render.test.js`
-Expected: PASS（9 个测试）
+Expected: PASS（10 个测试）
 
 - [ ] **Step 5: 回归 + 提交**
 
@@ -1580,22 +1650,26 @@ import { createSession, getActive, resetActive } from '../js/games/session.js';
 
 // 最小假 host：记录所有副作用，供断言清理是否彻底
 function fakeHost() {
-  const log = { raf: 0, cancels: 0, paints: 0, teardown: 0, focus: 0, restore: 0, resizes: 0 };
-  const cbs = { resize: new Set(), visibility: new Set(), blur: new Set() };
+  const log = { raf: 0, cancels: 0, paints: 0, teardown: 0, focus: 0, restore: 0, resizes: 0, status: [] };
+  const cbs = { resize: new Set(), visibility: new Set(), blur: new Set(), focus: new Set(), keydown: new Set(), keyup: new Set() };
   let queue = [];
   return {
     log, cbs,
     fire(kind, arg) { for (const cb of [...cbs[kind]]) cb(arg); },
-    frame() { const q = queue; queue = []; for (const cb of q) cb(); },
+    frame() { const q = queue; queue = []; for (const x of q) x.cb(); },
     pendingFrames: () => queue.length,
     mount() { return { root: {}, screen: {}, touch: {} }; },
     paint() { log.paints++; },
     onResize(cb) { cbs.resize.add(cb); return () => cbs.resize.delete(cb); },
     onVisibility(cb) { cbs.visibility.add(cb); return () => cbs.visibility.delete(cb); },
     onBlur(cb) { cbs.blur.add(cb); return () => cbs.blur.delete(cb); },
+    onFocus(cb) { cbs.focus.add(cb); return () => cbs.focus.delete(cb); },
+    onKeyDown(cb) { cbs.keydown.add(cb); return () => cbs.keydown.delete(cb); },
+    onKeyUp(cb) { cbs.keyup.add(cb); return () => cbs.keyup.delete(cb); },
+    setStatus(t) { log.status.push(t); },
     now: () => 1000,
-    raf(cb) { log.raf++; queue.push(cb); return log.raf; },
-    cancelRAF() { log.cancels++; },
+    raf(cb) { log.raf++; queue.push({ h: log.raf, cb }); return log.raf; },
+    cancelRAF(h) { log.cancels++; const i = queue.findIndex((x) => x.h === h); if (i >= 0) queue.splice(i, 1); },
     focus() { log.focus++; },
     restoreFocus() { log.restore++; },
     setTouchVisible() {},
@@ -1610,7 +1684,7 @@ function fakeGame() {
     state: { ticks: 0, phase: 'play' },
     update(_dt, ax) { ticks++; this.state.ticks = ticks; this.state.lastAx = ax; },
     handleKey(key) { return key === ' '; },
-    render() { return ['row']; },
+    render(frame) { this.state.lastFrame = frame; return ['row']; },
     statusLine: () => 'status',
     isOver: () => false,
     restart() {},
@@ -1621,12 +1695,22 @@ const noSfx = { paddle() {}, wall() {}, score() {}, over() {} };
 const store = { load: () => ({ version: 1, pong: {} }), save: () => true, update: (f) => f({ version: 1, pong: { gamesPlayed: 0, playerWins: 0, aiWins: 0, bestScore: { left: 0, right: 0 }, muted: false } }) };
 
 function setup(extra = {}) {
-  resetActive();
+  // 需要跨 session 观察「重复启动守卫」时传 fresh: false，否则它会清掉上一个会话的注册
+  if (extra.fresh !== false) resetActive();
   const host = fakeHost();
   const game = extra.game || fakeGame();
   const session = createSession({ game, host, sfx: noSfx, store, ...extra.opts });
   return { host, game, session };
 }
+
+// 键盘事件桩：必须同时具备 preventDefault 与 stopPropagation（ESC 消费契约需要）
+const keyEvent = (key) => ({
+  key,
+  prevented: false,
+  stopped: false,
+  preventDefault() { this.prevented = true; },
+  stopPropagation() { this.stopped = true; },
+});
 
 test('before start the session is created and inactive', () => {
   const { session } = setup();
@@ -1656,16 +1740,17 @@ test('starting twice is refused and does not double-mount', () => {
 test('a second session cannot start while one is active', () => {
   const a = setup();
   a.session.start();
-  const b = setup();
+  const b = setup({ fresh: false });      // fresh:false —— 不能清掉 a 的注册，否则测不到守卫
   assert.throws(() => b.session.start(), /already running/);
-  assert.equal(b.host.log.raf, 0);
+  assert.equal(b.host.log.raf, 0, 'a refused session must not start a loop');
+  assert.equal(b.host.log.teardown, 0);
   a.session.destroy();
 });
 
 test('axis input reaches the game update', () => {
   const { session, host, game } = setup();
   session.start();
-  host.fire('keydown', { key: 'w', preventDefault() {} });
+  host.fire('keydown', keyEvent('w'));
   host.frame();
   assert.deepEqual(game.state.lastAx, { up1: true, down1: false, up2: false, down2: false });
 });
@@ -1673,7 +1758,7 @@ test('axis input reaches the game update', () => {
 test('pause stops the loop, clears pressed keys and resumes cleanly', () => {
   const { session, host, game } = setup();
   session.start();
-  host.fire('keydown', { key: 'w', preventDefault() {} });
+  host.fire('keydown', keyEvent('w'));
   host.fire('visibility', 'hidden');
   assert.equal(session.getState(), 'paused');
   assert.ok(host.log.cancels >= 1);
@@ -1687,7 +1772,7 @@ test('pause stops the loop, clears pressed keys and resumes cleanly', () => {
 test('blur pauses and clears keys (no sticky W)', () => {
   const { session, host, game } = setup();
   session.start();
-  host.fire('keydown', { key: 'w', preventDefault() {} });
+  host.fire('keydown', keyEvent('w'));
   host.fire('blur');
   assert.equal(session.getState(), 'paused');
   host.fire('focus');
@@ -1698,9 +1783,10 @@ test('blur pauses and clears keys (no sticky W)', () => {
 test('escape ends the session, consumes the key and restores focus once', async () => {
   const { session, host } = setup();
   session.start();
-  let prevented = false;
-  host.fire('keydown', { key: 'Escape', preventDefault() { prevented = true; } });
-  assert.equal(prevented, true, 'escape must be prevented');
+  const ev = keyEvent('Escape');
+  host.fire('keydown', ev);
+  assert.equal(ev.prevented, true, 'escape must be prevented');
+  assert.equal(ev.stopped, true, 'escape must not reach the shell');
   assert.equal(session.getState(), 'destroyed');
   assert.equal(host.log.teardown, 1);
   assert.equal(host.log.restore, 1);
@@ -1738,6 +1824,46 @@ test('resize forwards to the game and never resets state', () => {
   host.fire('resize', { cols: 100, rows: 30 });
   assert.equal(game.state.ticks, ticks, 'resize must not tick the game');
   assert.ok(host.log.paints >= 1);
+});
+
+test('render receives the frame built by the session', () => {
+  const { session, host, game } = setup();
+  session.start();
+  host.frame();
+  const f = game.state.lastFrame;
+  assert.ok(f && f.grid && f.layout, 'game.render must receive a frame object');
+  assert.equal(f.grid.length, f.layout.rows);
+  assert.ok(f.layout.cols >= 40 && f.layout.rows >= 12);
+});
+
+test('resize rebuilds the frame at the new size and hands it to the game', () => {
+  const { session, host, game } = setup();
+  session.start();
+  host.fire('resize', { cols: 100, rows: 30 });
+  assert.equal(game.state.lastFrame.layout.cols, 100);
+  assert.equal(game.state.lastFrame.layout.rows, 30);
+});
+
+test('status line changes are pushed to the host footer', () => {
+  const { session, host, game } = setup();
+  let text = 'menu status';
+  game.statusLine = () => text;
+  session.start();
+  assert.ok(host.log.status.includes('menu status'));
+  text = 'play status';
+  host.frame();
+  assert.ok(host.log.status.includes('play status'), 'footer must follow the phase');
+});
+
+test('a throwing update cancels its frame and tears down exactly once', () => {
+  const game = fakeGame();
+  game.update = () => { throw new Error('boom'); };
+  const { session, host } = setup({ game, opts: { onError: () => {} } });
+  session.start();
+  host.frame();
+  assert.equal(session.getState(), 'destroyed');
+  assert.equal(host.pendingFrames(), 0, 'no RAF may be left scheduled');
+  assert.equal(host.log.teardown, 1);
 });
 
 test('end() then destroy() removes all host callbacks', () => {
@@ -1779,7 +1905,7 @@ Expected: FAIL —— `Cannot find module '../js/games/session.js'`
 //  destroy() 幂等；模块级 activeSession 守卫防止重复启动。
 // ============================================================
 import { createInputState, keyDown, keyUp, clearInput, axes, consume, isConsumed } from './input.js';
-import { diffRows } from './renderer.js';
+import { buildFrame, diffRows } from './renderer.js';
 
 let activeSession = null;
 
@@ -1809,6 +1935,8 @@ export function createSession({
   let prevRows = [];
   let cols = 80;
   let rows = 24;
+  // 静态框架（边框/分隔线/标题/底栏）由 session 持有；resize 时重建，游戏只画动态对象
+  let frameObj = buildFrame({ title, cols, rows });
 
   const exited = new Promise((r) => { resolveExited = r; });
 
@@ -1824,7 +1952,7 @@ export function createSession({
   }
 
   function paint(force = false) {
-    const out = game.render();
+    const out = game.render(frameObj);
     const changed = force ? out.map((_, i) => i) : diffRows(prevRows, out);
     prevRows = out;
     if (changed.length) host.paint(out, changed);
@@ -1921,7 +2049,6 @@ export function createSession({
 
   function destroy() {
     if (state === 'destroyed') return;
-    const wasEnded = state === 'ended';
     state = 'destroyed';
     stopLoop();
     detach();
@@ -1930,15 +2057,18 @@ export function createSession({
     try { host.restoreFocus(); } catch { /* ignore */ }
     if (activeSession === api) activeSession = null;
     if (!exitedResolved) { exitedResolved = true; resolveExited(); }
-    void wasEnded;
   }
 
   function end(reason = 'end') {
     if (state === 'destroyed' || state === 'ended') return;
     state = 'ended';
     stopLoop();
-    // 排到当前任务之后：避免在 keydown 处理过程中同步拆 DOM / 搬焦点
-    queueMicrotask(() => destroy());
+    // 同步 destroy（不做微任务延迟），理由：
+    //  1) 事件派发路径在 dispatch 时就已固定，销毁 DOM 与搬焦点不会把本次 ESC 送给主终端；
+    //     ESC 的保证由 preventDefault + stopPropagation + consume() 承担（有测试）。
+    //  2) 状态与清理在同一时点完成，调用方无需 await 就能断言 destroyed。
+    //  3) frame() 在开头就重排了下一帧，stopLoop() 已将它取消，不会残留 RAF。
+    destroy();
   }
 
   const api = {
@@ -1953,10 +2083,12 @@ export function createSession({
       activeSession = api;
       state = 'running';
       host.mount({ title, onClose: () => end('window-closed') });
+      host.focus();       // 焦点归属由 session 统一驱动（host 只提供操作），测试可断言
       offs.push(host.onResize((dims) => {
         cols = dims.cols;
         rows = dims.rows;
-        if (typeof game.resize === 'function') game.resize(dims);
+        frameObj = buildFrame({ title, cols: dims.cols, rows: dims.rows });   // 重建静态层
+        if (typeof game.resize === 'function') game.resize(dims, frameObj);   // 不得重置游戏状态
         paint(true);
         syncStatus(true);
       }));
@@ -1983,12 +2115,12 @@ export function createSession({
 }
 ```
 
-> 说明：`host` 接口在 Task 8 里补全 `onKeyDown/onKeyUp/onFocus` 三项（假 host 与真 host 同步实现），并在跨任务契约中登记。
+> 说明：`host` 的 `onKeyDown/onKeyUp/onFocus/setStatus` 已在**跨任务契约块**登记。真 host 在 **Task 10** 实现，Task 7 的假 host 必须同步具备这些方法（否则 `session.start()` 一上来就 TypeError，而不是「模块找不到」的预期失败）。
 
 - [ ] **Step 4: 运行测试确认通过**
 
 Run: `node --test tests/games-session.test.js`
-Expected: PASS（13 个测试）
+Expected: PASS（17 个测试）
 
 - [ ] **Step 5: 回归 + 提交**
 
@@ -2018,7 +2150,7 @@ git commit -m "feat(arcade): add idempotent game session lifecycle"
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { GAMES, parseArcadeArgs, runArcade } from '../js/games/arcade.js';
-import { resetActive, getActive } from '../js/games/session.js';
+import { createSession, resetActive, getActive } from '../js/games/session.js';
 
 resetActive();
 
@@ -2049,6 +2181,36 @@ function makeShell({ sessionFactory } = {}) {
 }
 
 const textOf = (out) => out.map((o) => (Array.isArray(o[1]) ? o[1].join('\n') : o[1])).join('\n');
+
+// 真 session 需要的最小假 host（与 Task 7 同契约，此处独立实现，避免跨文件耦合）
+function fakeHost() {
+  const log = { raf: 0, cancels: 0, teardown: 0 };
+  const off = () => () => {};
+  return {
+    log,
+    mount() { return { root: {}, screen: {}, touch: {} }; },
+    paint() {}, setStatus() {},
+    onResize: off, onVisibility: off, onBlur: off, onFocus: off, onKeyDown: off, onKeyUp: off,
+    now: () => 0,
+    raf() { log.raf++; return log.raf; },
+    cancelRAF() { log.cancels++; },
+    focus() {}, restoreFocus() {}, setTouchVisible() {},
+    teardown() { log.teardown++; },
+  };
+}
+
+// 不带 DOM 的最小游戏桩
+function pongGame() {
+  return {
+    state: { phase: 'menu', events: [] },
+    update() {},
+    handleKey: () => false,
+    render: () => ['row'],
+    statusLine: () => 'status',
+    isOver: () => false,
+    restart() {},
+  };
+}
 
 test('registry exposes pong with meta', () => {
   assert.ok(GAMES.pong);
@@ -2135,17 +2297,23 @@ test('a session that fails to start reports an error and leaves no active sessio
 
 test('a second arcade while one is active is refused', async () => {
   resetActive();
-  let release;
-  const gate = new Promise((r) => { release = r; });
-  const first = makeShell({ sessionFactory: () => ({ exited: gate, start: () => Promise.resolve(), destroy() {} }) });
-  const p = runArcade(first.shell, ['pong']);
-  await Promise.resolve();
-  const second = makeShell();
-  await runArcade(second.shell, ['pong']);
-  assert.ok(textOf(second.out).includes('already running'));
-  assert.equal(second.opened.length, 0);
-  release();
-  await p;
+  // 用真 session 建立真实守卫：假 session 不注册 activeSession，根本测不到守卫
+  const live = createSession({ game: pongGame(), host: fakeHost(), sfx: {}, store: null });
+  live.start();
+  assert.equal(getActive(), live, 'session.start() must register the active session');
+
+  const { shell, out, opened } = makeShell();
+  await runArcade(shell, ['pong']);
+  assert.ok(textOf(out).includes('already running'), 'must refuse while a session is active');
+  assert.equal(opened.length, 0, 'must not open a second session');
+
+  live.destroy();
+  assert.equal(getActive(), null);
+
+  // 释放后可以再次启动
+  const again = makeShell();
+  await runArcade(again.shell, ['pong']);
+  assert.equal(again.opened.length, 1, 'after the session is gone a new one may start');
 });
 
 test('arcade --help text mentions keyboard and exit keys', async () => {
@@ -2171,6 +2339,7 @@ Expected: FAIL —— `Cannot find module '../js/games/arcade.js'`
 // ============================================================
 import { createStore } from './storage.js';
 import { meta as pongMeta, createGame as createPong } from './pong.js';
+import { getActive } from './session.js';
 
 export const GAMES = {
   [pongMeta.id]: { meta: pongMeta, create: createPong },
@@ -2211,6 +2380,9 @@ function helpLines() {
     '    arcade --help          show this help',
     '    arcade --reset         reset arcade data (high scores, mute)',
     '',
+    'Example:',
+    '    arcade pong',
+    '',
     'Pong controls:',
     '    W / S                  move player 1 paddle',
     '    Up / Down              move player 2 paddle (two-player mode)',
@@ -2240,11 +2412,10 @@ export async function runArcade(shell, args) {
   }
 
   const entry = GAMES[parsed.id];
+  // 守卫放在命令层，且不在 session.js（而 session.js 只依赖 input/renderer 两个纯模块）
+  if (getActive()) return shell.error('arcade: a session is already running');
   if (!shell.ui || typeof shell.ui.openGameSession !== 'function') {
     return shell.error('arcade: no game host available');
-  }
-  if (typeof shell.ui.hasActive === 'function' && shell.ui.hasActive()) {
-    return shell.error('arcade: a session is already running');
   }
 
   let session = null;
@@ -2416,7 +2587,7 @@ import { runArcade } from './games/arcade.js';
 在 import 区加：
 
 ```js
-import { createSession, getActive } from './games/session.js';
+import { createSession } from './games/session.js';
 import { createHost } from './games/host.js';
 ```
 
@@ -2425,7 +2596,6 @@ import { createHost } from './games/host.js';
 ```js
 // ---- terminal arcade: 宿主能力注入（arcade.js 不碰 DOM，由这里装配）----
 shell.ui = {
-  hasActive: () => !!getActive(),
   sfx: {
     paddle: () => sound.blip(440, 0.03, 0.03),
     wall: () => sound.blip(300, 0.02, 0.022),
@@ -2461,7 +2631,8 @@ git commit -m "feat(arcade): register arcade command, wire host, extend sound wi
 
 **Files:**
 - Create: `js/games/host.js`
-- Modify: `css/style.css`（本任务只加窗口与屏幕样式；触摸样式在 Task 11）
+
+（本任务不碰 CSS：窗口 / 屏幕 / 触摸样式全部在 Task 11）
 
 **Interfaces:**
 - Produces: `createHost({ mount, railWidth, focusInput }) → host`，实现完整契约（含 `onKeyDown/onKeyUp/onFocus`）
@@ -2632,6 +2803,7 @@ export function createHost({ mount = null, railWidth = 0, focusInput = null } = 
     const fo = () => emit('focus');
     root.addEventListener('focusout', onFocusOut);
     window.addEventListener('blur', bo);
+    window.addEventListener('focus', fo);          // 与 blur 成对：失焦暂停 → 回焦恢复
     const vis = () => emit('visibility', document.hidden ? 'hidden' : 'visible');
     document.addEventListener('visibilitychange', vis);
     const rs = () => onResizeNotify();
@@ -2647,10 +2819,10 @@ export function createHost({ mount = null, railWidth = 0, focusInput = null } = 
       () => root.removeEventListener('keyup', ku),
       () => root.removeEventListener('focusout', onFocusOut),
       () => window.removeEventListener('blur', bo),
+      () => window.removeEventListener('focus', fo),
       () => document.removeEventListener('visibilitychange', vis),
       () => window.removeEventListener('resize', rs),
       () => { if (ro) { ro.disconnect(); ro = null; } },
-      () => bindTouch(),
     );
 
     function onFocusOut() {
@@ -2659,8 +2831,7 @@ export function createHost({ mount = null, railWidth = 0, focusInput = null } = 
       queueMicrotask(() => { if (activeSessionLike() && root) root.focus(); });
     }
 
-    bindTouch();
-    focus();
+    offs.push(bindTouch());      // 触摸监听器的真正释放入口（不是空操作）
     onResizeNotify();
     return { root, screen, touch: touchEl };
   }
@@ -2676,13 +2847,15 @@ export function createHost({ mount = null, railWidth = 0, focusInput = null } = 
     });
   }
 
-  // 触摸：pointer 与 touch 双绑定，同一指针只处理一次
+  // 触摸：pointer 与 touch 双绑定，同一指针只处理一次；返回可释放的 disposer
   const touchBound = new WeakMap();
   function bindTouch() {
-    if (!touchEl) return;
+    if (!touchEl) return () => {};
     touchEl.hidden = !isCoarse();
-    if (touchBound.has(touchEl)) return;
+    if (touchBound.has(touchEl)) return touchBound.get(touchEl).off;
     const seen = new Set();
+    const bound = [];
+    const add = (el, type, fn) => { el.addEventListener(type, fn); bound.push(() => el.removeEventListener(type, fn)); };
     const down = (action) => (e) => {
       if (e.pointerId !== undefined && seen.has(e.pointerId)) return;
       if (e.pointerId !== undefined) seen.add(e.pointerId);
@@ -2699,10 +2872,10 @@ export function createHost({ mount = null, railWidth = 0, focusInput = null } = 
     };
     for (const btn of touchEl.querySelectorAll('.game-touch-btn')) {
       const action = btn.dataset.action;
-      btn.addEventListener('pointerdown', down(action));
-      btn.addEventListener('pointerup', up(action));
-      btn.addEventListener('pointercancel', up(action));
-      btn.addEventListener('pointerleave', up(action));
+      add(btn, 'pointerdown', down(action));
+      add(btn, 'pointerup', up(action));
+      add(btn, 'pointercancel', up(action));
+      add(btn, 'pointerleave', up(action));
     }
     const cancelAll = () => {
       seen.clear();
@@ -2710,9 +2883,11 @@ export function createHost({ mount = null, railWidth = 0, focusInput = null } = 
       emit('keyup', { key: 's' });
       touchEl.removeAttribute('data-active');
     };
-    touchEl.addEventListener('touchcancel', cancelAll);
-    touchEl.addEventListener('contextmenu', (e) => e.preventDefault());
-    touchBound.set(touchEl, cancelAll);
+    add(touchEl, 'touchcancel', cancelAll);
+    add(touchEl, 'contextmenu', (e) => e.preventDefault());
+    const off = () => { while (bound.length) { const f = bound.pop(); try { f(); } catch { /* ignore */ } } seen.clear(); };
+    touchBound.set(touchEl, { off });
+    return off;
   }
 
   function isCoarse() {
@@ -2759,10 +2934,10 @@ export function createHost({ mount = null, railWidth = 0, focusInput = null } = 
     setTouchVisible(v) { if (touchEl) touchEl.hidden = !v; },
     setStatus(text) { if (footerEl) footerEl.textContent = String(text == null ? '' : text); },
     teardown() {
+      const el = root;                  // 先抓引用：不依赖 document / querySelector（无 DOM 环境下也不能抛）
       root = null; screen = null; touchEl = null; headerTitle = null; footerEl = null;
       rowsCache = [];
       while (offs.length) { const off = offs.pop(); try { off(); } catch { /* ignore */ } }
-      const el = document.querySelector('.game-window');
       if (el && el.parentNode) el.parentNode.removeChild(el);
       win = null; ro = null;
     },
@@ -2880,7 +3055,7 @@ git commit -m "feat(arcade): style the game window, screen and touch controls"
 - [ ] **Step 1: 全量测试**
 
 Run: `node --test tests/*.test.js`
-Expected: `# fail 0`，新增约 90 个测试全部通过
+Expected: `# tests 196`、`# fail 0`（既有 97 + 新增 99）
 
 - [ ] **Step 2: 本地静态检查**
 
@@ -2955,6 +3130,41 @@ git add -A && git commit -m "feat(arcade): pong in an isolated terminal session"
 **类型/命名一致性**：`createGame`/`update`/`render`/`handleKey`/`statusLine`/`isOver`/`restart` 在各任务中签名一致；`host` 契约在 Task 7 使用、Task 10 实现、Task 10 测试校验；`sfx` 键名（`paddle/wall/score/over`）在 Task 7 与 Task 9 一致。
 
 **已知偏差**：`host.js` 比上游推荐的 6 文件拆分多出一个文件，理由已写入 Spec §16.2（无 jsdom，纯逻辑与 DOM 必须分离）。
+
+---
+
+## 验证记录（计划写完后实测，2026-09-19）
+
+把本计划的 Task 1–8 代码块**抽取到 `/tmp/plan-verify/` 真实执行**（不碰仓库、不碰线上）：
+
+```
+Task 1-8 抽取结果：js/games/{storage,pong,renderer,input,session,arcade}.js + 8 个测试文件
+node --test tests/*.test.js  →  # tests 92   # pass 92   # fail 0
+```
+
+首轮执行败 8 个，均为计划真缺陷，已修：
+
+| 失败用例 | 根因 | 修法 |
+|---|---|---|
+| `arcade --help prints usage` | `helpLines()` 里没有字面量 `arcade pong` | 补 `Example:` 行 |
+| `whitelist is exactly…` | 反例 `╔`(U+2554) **落在** U+2500–257F 区间内，本应合法 | 反例改为 U+24FF/U+2590/U+2580/U+2584 |
+| `layoutFor keeps the playfield…` | 期望值写错（fieldBottom 20/fieldRows 17） | 改为 22 / 19，并把底栏交给 DOM 元素（.game-footer），网格不再预留底栏行 |
+| `buildFrame draws a dashed center line…` | 断言写错（拿比分行当分隔线） | 改为断言比分行中心为空 + 首行/末行均虚线 |
+| `start mounts, focuses…` | session 未显式 `host.focus()`，假 host 的 `log.focus` 恒 0 | session.start() 里加 `host.focus()`（单一所有者），host.mount() 不再自己 focus |
+| `a second session cannot start…` | `setup()` 每次都 `resetActive()`，把第一个会话的注册抹掉了 | `setup({ fresh: false })` 保留注册 |
+| `escape ends the session…` | 测试的事件桩缺 `stopPropagation`，而 session 会调它 | 加 `keyEvent()` 事件桩，并断言 `stopped === true` |
+| `a throwing update cancels its frame…` | 假 host 的 `cancelRAF` 只计数、不从队列移除，`pendingFrames()` 永远非 0 | `raf()` 存 `{h,cb}`，`cancelRAF` 按句柄 splice |
+
+额外验证（同样实测）：
+
+```
+Task 10 host.js 惰性宿主路径  → 2/2 通过（无 DOM 环境下不抛）
+Task 9 sound.blip 补丁打在真实 js/sound.js 上 → 2/2 通过
+```
+
+新增测试总数：**92（Task 1–8）+ 2（host）+ 2（sound）+ 3（registration）= 99** ⇒ 全线应为 97 + 99 = **196**。
+
+> ⚠️ 该验证只覆盖 **纯逻辑与无 DOM 路径**。Task 10 的窗口/焦点/ResizeObserver/触摸，以及 Task 11 的 CSS、Task 12 的浏览器验收，**必须**在浏览器里手工验收（无 jsdom）。
 
 ---
 
