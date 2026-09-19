@@ -77,7 +77,27 @@
 
 ---
 
-## G. 站点级（可选）
+## G. 隐藏文件与彩蛋（P1 新增）
+
+入口：`cat .secret` / `cat .note` / `cat .birthday`；列表：`ls -a`、`tree -a`
+
+| 文件 | 当前占位 | 需要你提供 |
+|---|---|---|
+| `.secret` | “You found something that was not listed in the docs.” + 占位 | 一句有趣的个人宣言 |
+| `.note` | “给认真探索到这里的人：” + 占位 | 给探索者的一句话 |
+| `.birthday` | `🎂 03-14` | 真实生日 / 纪念日 |
+
+## H. 趣味命令文案（P1 新增）
+
+位置：`js/content.js` → `FUN`
+
+| 项 | 当前 | 需要 |
+|---|---|---|
+| `FUN.coffee` | 咖啡 ASCII + `Coffee initialized.` / `Productivity +10` | 可保留，或改成你的说法 |
+| `FUN.sudoHire` | `[sudo] password for recruiter:` → `Access granted.` → 引导到 `contact/links.md` | 改成你自己的语气 |
+| `FUN.fortunes` | 3 句名言 + 1 条占位 | 换成你喜欢的句子（2–5 条） |
+
+## I. 站点级（可选）
 
 - `sitemap.xml` 的 `<lastmod>`（内容更新后同步）
 - `assets/og.png` 分享图（现为通用占位图，可换成真实品牌图）

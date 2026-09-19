@@ -52,7 +52,7 @@ export function complete(input, cwd, commandNames) {
   if (!dirNode || dirNode.type !== 'dir') return null;
 
   const names = Object.keys(dirNode.children)
-    .filter((n) => n.startsWith(base))
+    .filter((n) => (!n.startsWith('.') || base.startsWith('.')) && n.startsWith(base))
     .sort();
 
   if (names.length === 0) return null;

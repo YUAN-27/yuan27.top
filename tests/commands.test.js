@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { commands, commandNames, registry } from '../js/commands.js';
+import { commands, commandNames, registry, suggestCommand } from '../js/commands.js';
 import { complete } from '../js/completion.js';
 import { resolve } from '../js/fs.js';
 
@@ -153,4 +153,94 @@ test('motion command rejects invalid arguments', async () => {
   shell.background = { mode: 'full', isMotionOff: () => false, setMotion: () => 'full' };
   await commands.motion(shell, ['maybe']);
   assert.deepEqual(out[0], ['error', "motion: maybe: invalid argument (use 'on' or 'off')"]);
+});
+
+// ---- P1: hidden files ----
+test('ls hides dotfiles by default, ls -a shows them', async () => {
+  const plain = makeShell('/');
+  await commands.ls(plain.shell, []);
+  const plainHtml = firstOf(plain.out, 'lines').join('');
+  assert.equal(/\.secret/.test(plainHtml), false);
+  assert.match(plainHtml, /readme\.md/);
+
+  const all = makeShell('/');
+  await commands.ls(all.shell, ['-a']);
+  const allHtml = firstOf(all.out, 'lines').join('');
+  assert.match(allHtml, /\.secret/);
+  assert.match(allHtml, /\.note/);
+  assert.match(allHtml, /\.birthday/);
+});
+
+test('ls -la (combined flags) shows hidden files too', async () => {
+  const { shell, out } = makeShell('/');
+  await commands.ls(shell, ['-la']);
+  assert.match(firstOf(out, 'lines').join(''), /\.secret/);
+});
+
+test('tree hides dotfiles by default, tree -a shows them', async () => {
+  const plain = makeShell('/');
+  await commands.tree(plain.shell, []);
+  assert.equal(/\.secret/.test(firstOf(plain.out, 'text').join('\n')), false);
+
+  const all = makeShell('/');
+  await commands.tree(all.shell, ['-a']);
+  const allText = firstOf(all.out, 'text').join('\n');
+  assert.match(allText, /\.secret/);
+  assert.match(allText, /\.birthday/);
+});
+
+test('cat can read a hidden file without -a', async () => {
+  const { shell, out } = makeShell('/');
+  await commands.cat(shell, ['.secret']);
+  assert.match(firstOf(out, 'chars'), /not listed in the docs/);
+});
+
+test('completion hides dotfiles unless a dot is typed', () => {
+  const plain = complete('cat ', '/', commandNames).list;
+  assert.ok(plain.every((n) => !n.startsWith('.')), plain.join(','));
+  const hidden = complete('cat .', '/', commandNames).list;
+  assert.ok(hidden.includes('.secret'));
+  assert.ok(hidden.includes('.note'));
+});
+
+// ---- P1: fun commands ----
+test('coffee prints the easter egg', async () => {
+  const { shell, out } = makeShell();
+  await commands.coffee(shell, []);
+  const text = firstOf(out, 'text').join('\n');
+  assert.match(text, /Coffee initialized\./);
+  assert.match(text, /Productivity \+10/);
+});
+
+test('sudo hire yuan grants access and points to contact', async () => {
+  const { shell, out } = makeShell();
+  await commands.sudo(shell, ['hire', 'yuan']);
+  const text = out.filter((o) => o[0] === 'text').map((o) => o[1][0]).join('\n');
+  assert.match(text, /Access granted\./);
+  assert.match(text, /contact\/links\.md/);
+});
+
+test('sudo with another command is denied', async () => {
+  const { shell, out } = makeShell();
+  await commands.sudo(shell, ['rm', '-rf', '/']);
+  assert.deepEqual(out[0], ['error', "sudo: rm -rf /: permission denied (try 'sudo hire yuan')"]);
+});
+
+test('fortune prints something', async () => {
+  const { shell, out } = makeShell();
+  await commands.fortune(shell, []);
+  assert.ok(firstOf(out, 'text').join('').trim().length > 0);
+});
+
+// ---- P1: suggestions ----
+test('suggestCommand suggests near misses only', () => {
+  assert.equal(suggestCommand('hepl'), 'help');
+  assert.equal(suggestCommand('cta'), 'cat');
+  assert.equal(suggestCommand('zzzzzz'), null);
+});
+
+test('P1 fun commands are in the Fun category', () => {
+  for (const name of ['coffee', 'fortune', 'sudo']) {
+    assert.equal(registry[name].category, 'Fun', name);
+  }
 });

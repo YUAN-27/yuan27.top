@@ -5,7 +5,7 @@ import { complete } from './completion.js';
 import { initTheme } from './themes.js';
 import { resolve as resolvePath } from './fs.js';
 import { LOGO, WELCOME, BOOT_LINES } from './content.js';
-import { commands, commandNames } from './commands.js';
+import { commands, commandNames, suggestCommand } from './commands.js';
 import { parse } from './parser.js';
 import { enableWindow } from './windowing.js';
 import { initBackground } from './background.js';
@@ -64,6 +64,8 @@ async function drain() {
       const handler = commands[parsed.command];
       if (!handler) {
         await shell.error(`${parsed.command}: command not found`);
+        const s = suggestCommand(parsed.command);
+        if (s) await shell.muted(`Did you mean '${s}'?  Try 'help'.`);
       } else {
         await handler(shell, parsed.args);
       }

@@ -59,6 +59,36 @@ export const NEOFETCH_ART = [
   '  |_|  \\___/_/ \\_\\_|\\_|',
 ].join('\n');
 
+// ← 替换此处：彩蛋文案（coffee / sudo / fortune）
+export const FUN = {
+  coffee: [
+    '',
+    '     ( (',
+    '      ) )',
+    '   ........',
+    '   |      |]',
+    '   \\      /',
+    "    `----'",
+    '',
+    'Coffee initialized.',
+    'Productivity +10',
+  ],
+  sudoHire: [
+    '[sudo] password for recruiter:',
+    'Checking credentials...',
+    'Access granted.',
+    '',
+    'Yuan is open to meaningful opportunities.',
+    'Try: cat contact/links.md',
+  ],
+  fortunes: [
+    'Talk is cheap. Show me the code.  — Linus Torvalds',
+    'Simplicity is prerequisite for reliability.  — Edsger W. Dijkstra',
+    'Premature optimization is the root of all evil.  — Donald Knuth',
+    '（← 替换此处：加几句你自己的话）',
+  ],
+};
+
 // ------------------------------------------------------------
 // Virtual File System
 //   file types:
@@ -86,6 +116,26 @@ This site is a virtual Unix terminal. Try:
 
 Type 'help' to begin.
 （← 替换此处：写一段欢迎语和站点导览）`,
+    },
+
+    // ---- hidden easter eggs（默认隐藏；ls -a / tree -a 可见）----
+    '.secret': {
+      type: 'file',
+      content: `You found something that was not listed in the docs.
+
+（← 替换此处：一句有趣的个人宣言）`,
+    },
+    '.note': {
+      type: 'file',
+      content: `给认真探索到这里的人：
+
+（← 替换此处：一句话）`,
+    },
+    '.birthday': {
+      type: 'file',
+      content: `🎂 03-14
+
+（← 替换此处：生日或纪念日彩蛋）`,
     },
 
     about: {

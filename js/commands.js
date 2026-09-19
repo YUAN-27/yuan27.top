@@ -1,8 +1,9 @@
 // Command registry — single source of truth for handlers, help and completion.
 // Adding a command = adding one entry here (help + Tab completion pick it up automatically).
 import { getNode, resolve as resolvePath } from './fs.js';
-import { WHOAMI, PROFILE, NEOFETCH_ART } from './content.js';
+import { WHOAMI, PROFILE, NEOFETCH_ART, FUN } from './content.js';
 import { getThemes, setTheme, currentTheme } from './themes.js';
+import { closest } from './suggest.js';
 
 const escapeHtml = (s) =>
   String(s).replace(/[&<>"']/g, (c) => ({
@@ -70,13 +71,20 @@ Usage:
     help: `tree - display directory tree
 
 Usage:
-    tree [path]
+    tree [-a] [path]
+
+Options:
+    -a    include hidden files
 
 Example:
     tree
+    tree -a
     tree projects`,
     async run(shell, args) {
-      const target = args[0] ?? '.';
+      const flags = args.filter((a) => a.startsWith('-')).join('');
+      const positional = args.filter((a) => !a.startsWith('-'));
+      const showAll = flags.includes('a');
+      const target = positional[0] ?? '.';
       const path = resolvePath(shell.cwd, target);
       const node = getNode(path);
       if (!node) return shell.error(`tree: ${target}: No such file or directory`);
@@ -84,7 +92,7 @@ Example:
 
       const lines = [path];
       const walk = (dir, prefix) => {
-        const names = Object.keys(dir.children).sort();
+        const names = Object.keys(dir.children).sort().filter((n) => showAll || !n.startsWith('.'));
         names.forEach((name, i) => {
           const last = i === names.length - 1;
           const child = dir.children[name];
@@ -123,19 +131,27 @@ Usage:
     help: `ls - list directory contents
 
 Usage:
-    ls [path]
+    ls [-a] [path]
+
+Options:
+    -a    include hidden files
 
 Example:
     ls
+    ls -a
     ls projects`,
     async run(shell, args) {
-      const target = args[0] ?? '.';
+      const flags = args.filter((a) => a.startsWith('-')).join('');
+      const positional = args.filter((a) => !a.startsWith('-'));
+      const showAll = flags.includes('a');
+      const target = positional[0] ?? '.';
       const path = resolvePath(shell.cwd, target);
       const node = getNode(path);
       if (!node) return shell.error(`ls: ${target}: No such file or directory`);
       if (node.type !== 'dir') return shell.error(`ls: ${target}: Not a directory`);
 
-      const names = Object.keys(node.children).sort();
+      let names = Object.keys(node.children).sort();
+      if (!showAll) names = names.filter((n) => !n.startsWith('.'));
       if (names.length === 0) return;
 
       const html = names.map((name) => {
@@ -357,9 +373,59 @@ Usage:
       return shell.success(`Background animation ${arg === 'off' ? 'disabled' : 'enabled'} (mode: ${mode}).`);
     },
   },
+
+  // ---- Fun ----
+  coffee: {
+    category: 'Fun',
+    summary: 'Boost productivity',
+    help: `coffee - boost productivity
+
+Usage:
+    coffee`,
+    async run(shell) {
+      return shell.printText(FUN.coffee, { lineDelay: 45 });
+    },
+  },
+
+  fortune: {
+    category: 'Fun',
+    summary: 'Print a random fortune',
+    help: `fortune - print a random fortune
+
+Usage:
+    fortune`,
+    async run(shell) {
+      const f = FUN.fortunes[Math.floor(Math.random() * FUN.fortunes.length)];
+      return shell.printText(['', f], { lineDelay: 0 });
+    },
+  },
+
+  sudo: {
+    category: 'Fun',
+    summary: 'Try privileged actions',
+    help: `sudo - try privileged actions
+
+Usage:
+    sudo hire yuan`,
+    async run(shell, args) {
+      const cmd = args.join(' ');
+      if (!cmd) return shell.error('sudo: no command specified');
+      if (cmd !== 'hire yuan') {
+        return shell.error(`sudo: ${cmd}: permission denied (try 'sudo hire yuan')`);
+      }
+      for (let i = 0; i < FUN.sudoHire.length; i++) {
+        await shell.printText([FUN.sudoHire[i]], { lineDelay: i < 3 ? 500 : 60 });
+      }
+    },
+  },
 };
 
 export const commandNames = Object.keys(registry);
 export const commands = Object.fromEntries(
   Object.entries(registry).map(([name, def]) => [name, def.run]),
 );
+
+// "did you mean" for unknown commands.
+export function suggestCommand(name) {
+  return closest(name, commandNames);
+}
