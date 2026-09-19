@@ -331,6 +331,32 @@ Example:
       return shell.success(`Theme set to '${name}'.`);
     },
   },
+
+  motion: {
+    category: 'Settings',
+    summary: 'Toggle background animation',
+    help: `motion - toggle background animation
+
+Usage:
+    motion          show current state
+    motion on       enable background animation
+    motion off      disable it (static grid)`,
+    async run(shell, args) {
+      const bg = shell.background;
+      const arg = args[0];
+      if (!arg) {
+        const off = bg && bg.isMotionOff ? bg.isMotionOff() : false;
+        const mode = bg ? bg.mode : 'unknown';
+        return shell.printText([`Background animation: ${off ? 'off' : 'on'} (mode: ${mode})`], { lineDelay: 0 });
+      }
+      if (arg !== 'on' && arg !== 'off') {
+        return shell.error(`motion: ${arg}: invalid argument (use 'on' or 'off')`);
+      }
+      if (!bg || !bg.setMotion) return shell.error('motion: background layer unavailable');
+      const mode = bg.setMotion(arg === 'off');
+      return shell.success(`Background animation ${arg === 'off' ? 'disabled' : 'enabled'} (mode: ${mode}).`);
+    },
+  },
 };
 
 export const commandNames = Object.keys(registry);

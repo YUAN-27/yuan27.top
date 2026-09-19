@@ -8,6 +8,7 @@ import { LOGO, WELCOME, BOOT_LINES } from './content.js';
 import { commands, commandNames } from './commands.js';
 import { parse } from './parser.js';
 import { enableWindow } from './windowing.js';
+import { initBackground } from './background.js';
 
 const outputEl = document.getElementById('output');
 const inputEl = document.getElementById('cmd-input');
@@ -125,6 +126,9 @@ enableWindow(windowEl, {
   dock: document.getElementById('window-dock'),
   storageKey: 'yuan27.window.v1',
 });
+
+// ---- desktop background: low-distraction ambient layer (auto-degrades) ----
+shell.background = initBackground();
 
 // ---- mobile quick buttons ----
 document.querySelectorAll('.mobile-toolbar button').forEach((btn) => {

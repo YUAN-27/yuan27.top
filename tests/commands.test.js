@@ -129,3 +129,28 @@ test('tab completion: command, dir and multi-match', () => {
   assert.ok(list.includes('website/'));
   assert.ok(list.includes('mips/'));
 });
+
+test('motion command toggles background via shell.background', async () => {
+  const { shell, out } = makeShell();
+  let off = false;
+  shell.background = {
+    get mode() { return off ? 'static' : 'full'; },
+    isMotionOff: () => off,
+    setMotion(v) { off = !!v; return this.mode; },
+  };
+  await commands.motion(shell, ['off']);
+  assert.equal(off, true);
+  assert.match(out.at(-1)[1], /disabled/);
+  assert.match(out.at(-1)[1], /static/);
+  await commands.motion(shell, []);
+  assert.match(out.at(-1)[1].join(''), /off/);
+  await commands.motion(shell, ['on']);
+  assert.equal(off, false);
+});
+
+test('motion command rejects invalid arguments', async () => {
+  const { shell, out } = makeShell();
+  shell.background = { mode: 'full', isMotionOff: () => false, setMotion: () => 'full' };
+  await commands.motion(shell, ['maybe']);
+  assert.deepEqual(out[0], ['error', "motion: maybe: invalid argument (use 'on' or 'off')"]);
+});
