@@ -207,3 +207,67 @@ export function setDifficulty(state, name) {
   state.difficulty = name;
   return true;
 }
+
+import { blit, glyphs } from './renderer.js';
+
+const pad = (n) => String(n).padStart(2, '0');
+
+function clampRow(v, top, bottom) {
+  const r = Math.round(v);
+  return r < top ? top : r > bottom ? bottom : r;
+}
+
+// 模型 → 网格：只画动态对象，静态框架由 renderer.buildFrame 提供
+export function render(state, frame) {
+  const rows = frame.grid.slice();
+  const L = frame.layout;
+
+  // 比分
+  const left = pad(state.score[0]);
+  const right = pad(state.score[1]);
+  blit(rows, Math.max(2, L.cx - 8), L.scoreRow, left);
+  blit(rows, Math.min(L.cols - 4, L.cx + 6), L.scoreRow, right);
+
+  const fieldRows = L.fieldRows;
+  const toRow = (y) => L.fieldTop + clampRow(y * (fieldRows - 1), 0, fieldRows - 1);
+
+  if (state.phase === 'menu') {
+    const cx = L.cx;
+    const mid = L.fieldTop + Math.floor(fieldRows / 2);
+    const put = (dy, text) => blit(rows, cx - Math.floor(text.length / 2), mid + dy, text);
+    blit(rows, cx - 2, mid - 4, 'PONG');
+    put(-1, '[1] Single Player');
+    put(1, '[2] Two Players');
+    put(3, '[Q] Quit');
+    return rows;
+  }
+
+  if (state.phase === 'gameover') {
+    const cx = L.cx;
+    const mid = L.fieldTop + Math.floor(fieldRows / 2);
+    const who = state.winner === 0 ? (state.mode === 'two' ? 'PLAYER 1 WINS' : 'PLAYER WINS') : 'AI WINS';
+    const put = (dy, text) => blit(rows, cx - Math.floor(text.length / 2), mid + dy, text);
+    put(-2, 'GAME OVER');
+    put(0, who);
+    put(2, `${pad(state.score[0])} - ${pad(state.score[1])}`);
+    put(4, '[Space] Play Again');
+    return rows;
+  }
+
+  // 挡板
+  const padRows = Math.max(2, Math.round(state.paddles[0].h * fieldRows));
+  for (const p of state.paddles) {
+    const top = L.fieldTop + clampRow(p.y * (fieldRows - 1), 0, fieldRows - padRows);
+    for (let i = 0; i < padRows; i++) {
+      blit(rows, Math.round(p.x * (L.cols - 1)) + 1, top + i, glyphs.paddle);
+    }
+  }
+
+  // 球
+  if (state.phase === 'play' || state.phase === 'serve') {
+    const bx = 1 + Math.round(state.ball.x * (L.innerW - 1));
+    blit(rows, bx, toRow(state.ball.y), glyphs.ball);
+  }
+
+  return rows;
+}
