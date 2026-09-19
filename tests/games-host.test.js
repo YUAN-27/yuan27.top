@@ -1,7 +1,7 @@
 // tests/games-host.test.js
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createHost } from '../js/games/host.js';
+import { createHost, sanitizeStoredWindowState, GAME_STORAGE_KEY } from '../js/games/host.js';
 
 // ---------------------------------------------------------------------------
 // 极简 DOM 桩：只验证 host 的**结构契约**（能不能挂上去、行是否写进 screen）。
@@ -55,6 +55,7 @@ function stubEl(tag = 'div') {
 function withStubDom(fn) {
   const body = stubEl('body');
   const noop = () => {};
+  const mem = new Map();
   const globals = {
     document: {
       body, hidden: false,
@@ -71,11 +72,23 @@ function withStubDom(fn) {
     getComputedStyle: () => ({ lineHeight: '19.2px', fontSize: '16px', font: '16px monospace' }),
     requestAnimationFrame: () => 1,
     cancelAnimationFrame: noop,
-    localStorage: { getItem: () => null, setItem: noop, removeItem: noop },
+    localStorage: {
+      getItem: (k) => (mem.has(k) ? mem.get(k) : null),
+      setItem: (k, v) => mem.set(k, String(v)),
+      removeItem: (k) => mem.delete(k),
+    },
   };
   const saved = {};
   for (const [k, v] of Object.entries(globals)) { saved[k] = globalThis[k]; globalThis[k] = v; }
-  try { return fn({ body }); } finally {
+  try {
+    return fn({
+      body,
+      storage: {
+        get: (k) => (mem.has(k) ? mem.get(k) : null),
+        set: (k, v) => mem.set(k, String(v)),
+      },
+    });
+  } finally {
     for (const [k, v] of Object.entries(saved)) {
       if (v === undefined) delete globalThis[k]; else globalThis[k] = v;
     }
@@ -153,6 +166,44 @@ test('setStatus writes the footer text', () => {
     const footer = root.children.find((c) => c.className === 'game-footer');
     assert.ok(footer, 'footer element must exist');
     assert.equal(footer.textContent, '[W/S] Move   [ESC] Quit');
+    host.teardown();
+  });
+});
+
+// ---- 回归：红灯关闭过一次后，下一次必须还能启动 ----
+// 事故：enableWindow 会把 closed/min 一起持久化，用户用红灯退出（= 设计好的退出方式）
+// 之后，下一次 arcade 会在 enableWindow 内部同步 onClose → destroy → root=null，
+// 而 mount() 还在继续跑 → TypeError: Cannot read properties of null (reading 'addEventListener')
+
+test('sanitizeStoredWindowState keeps geometry but drops closed/min', () => {
+  const mem = new Map([
+    [GAME_STORAGE_KEY, JSON.stringify({ left: 10, top: 20, w: 640, h: 400, max: false, min: true, closed: true })],
+  ]);
+  const storage = { getItem: (k) => mem.get(k) ?? null, setItem: (k, v) => mem.set(k, String(v)), removeItem: (k) => mem.delete(k) };
+  const out = sanitizeStoredWindowState(storage);
+  assert.equal(out.closed, undefined);
+  assert.equal(out.min, undefined);
+  assert.equal(out.w, 640, 'geometry must survive');
+  const written = JSON.parse(mem.get(GAME_STORAGE_KEY));
+  assert.ok(!written.closed && !written.min, 'the store must be rewritten without closed/min');
+});
+
+test('sanitizeStoredWindowState tolerates missing and corrupt data', () => {
+  assert.equal(sanitizeStoredWindowState({ getItem: () => null, setItem() {}, removeItem() {} }), null);
+  assert.equal(sanitizeStoredWindowState({ getItem: () => '{oops', setItem() {}, removeItem() {} }), null);
+  assert.equal(sanitizeStoredWindowState({ getItem: () => '"str"', setItem() {}, removeItem() {} }), null);
+  assert.doesNotThrow(() => sanitizeStoredWindowState(null));
+});
+
+test('mounting still works when a previous red-dot close was persisted', () => {
+  withStubDom(({ body, storage }) => {
+    storage.set(GAME_STORAGE_KEY, JSON.stringify({ left: 300, top: 200, w: 640, h: 400, max: false, min: false, closed: true }));
+    const host = createHost({ mount: body, railWidth: 0 });
+    const parts = host.mount({ title: 'T', onClose() {} });
+    assert.ok(parts.root, 'mount must return a usable root instead of throwing');
+    assert.ok(parts.screen, 'screen must exist');
+    assert.equal(body.children.length, 1, 'the window must be mounted and visible');
+    assert.equal(JSON.parse(storage.get(GAME_STORAGE_KEY)).closed, undefined, 'closed must have been cleared');
     host.teardown();
   });
 });

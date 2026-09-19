@@ -12,6 +12,32 @@ export const GAME_STORAGE_KEY = 'yuan27.arcade.window.v1';
 export const GAME_MIN_W = 420;
 export const GAME_MIN_H = 260;
 
+function browserStorage() {
+  try { return globalThis.localStorage || null; } catch { return null; }
+}
+
+// 游戏窗口每次都必须以「打开」状态出现，**只能继承几何，不能继承 closed/min**。
+// 事故记录（浏览器实测报 Cannot read properties of null (reading 'addEventListener')）：
+//   用户用**红灯**关掉游戏（那就是设计好的退出方式）→ enableWindow 写入 closed:true；
+//   下一次 `arcade pong` 时 enableWindow → restoreFromState() **同步**执行 close()
+//   → onStateChange → onClose → end() → destroy() → teardown() 把 root 置空，
+//   而 mount() 还在继续执行 → root.addEventListener 撞上 null → 会话启动失败。
+export function sanitizeStoredWindowState(storage = browserStorage()) {
+  if (!storage) return null;
+  try {
+    const raw = storage.getItem(GAME_STORAGE_KEY);
+    if (!raw) return null;
+    const s = JSON.parse(raw);
+    if (!s || typeof s !== 'object') return null;
+    if (s.closed || s.min) {
+      delete s.closed;
+      delete s.min;
+      try { storage.setItem(GAME_STORAGE_KEY, JSON.stringify(s)); } catch { /* ignore */ }
+    }
+    return s;
+  } catch { return null; }
+}
+
 // ⚠️ 挂载点参数命名为 container：若叫 mount 会被下面同名的 function mount() 声明提升覆盖（已踩过）
 export function createHost({ mount: container = null, railWidth = 0, focusInput = null } = {}) {
   const offs = [];
@@ -102,6 +128,9 @@ export function createHost({ mount: container = null, railWidth = 0, focusInput 
     root.append(header, screen, touchEl, footerEl);
     container.appendChild(root);
 
+    // 绝不复原 closed / minimized（否则红灯关闭过一次，就再也启动不了）
+    sanitizeStoredWindowState(browserStorage());
+
     win = enableWindow(root, {
       handle: header,
       storageKey: GAME_STORAGE_KEY,
@@ -111,6 +140,10 @@ export function createHost({ mount: container = null, railWidth = 0, focusInput 
       breakpoint: GAME_BREAKPOINT,
       onStateChange: (s) => { if (s.closed && typeof opts.onClose === 'function') opts.onClose(); },
     });
+
+    // enableWindow 可能在初始化期间**同步**结束会话（onStateChange → onClose → destroy → teardown），
+    // 那时 root/screen 已被置空。必须立刻干净退出，不能继续碰 DOM。
+    if (!root || !screen) return { root: null, screen: null, touch: null };
 
     // 默认几何：比主窗口小，居中（可通过拖动/缩放改变）
     if (!win.getState().floating) {

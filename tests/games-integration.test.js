@@ -63,6 +63,7 @@ function makeStubDom() {
     return node;
   }
   const body = el('body');
+  const mem = new Map();
   const clock = { now: 0 };
   let frames = [];
   const noop = () => {};
@@ -82,13 +83,19 @@ function makeStubDom() {
     getComputedStyle: () => ({ lineHeight: '19.2px', fontSize: '16px', font: '16px monospace' }),
     requestAnimationFrame: (cb) => { frames.push(cb); return frames.length; },
     cancelAnimationFrame: (id) => { if (id) frames[id - 1] = null; },
-    localStorage: { getItem: () => null, setItem: noop, removeItem: noop },
+    localStorage: {
+      getItem: (k) => (mem.has(k) ? mem.get(k) : null),
+      setItem: (k, v) => mem.set(k, String(v)),
+      removeItem: (k) => mem.delete(k),
+    },
     performance: { now: () => clock.now },
   };
   const saved = {};
   for (const [k, v] of Object.entries(globals)) { saved[k] = globalThis[k]; globalThis[k] = v; }
   return {
     body, clock, listenerMap,
+    storageGet: (k) => (mem.has(k) ? mem.get(k) : null),
+    storageSet: (k, v) => mem.set(k, String(v)),
     fire(target, type, event) {
       for (const [t, f] of (listenerMap.get(target) || [])) if (t === type) f(event);
     },
@@ -218,5 +225,19 @@ test('visibilitychange pauses and clears stuck keys', () => {
     session.resume();
     assert.equal(session.getState(), 'running');
     session.destroy();
+  } finally { dom.restore(); }
+});
+
+test('a red-dot close persisted last time must not block the next launch', () => {
+  const dom = makeStubDom();
+  try {
+    // 模拟 enableWindow 上一次把 closed:true 写进 localStorage
+    dom.storageSet('yuan27.arcade.window.v1', JSON.stringify({ left: 300, top: 200, w: 640, h: 400, max: false, min: false, closed: true }));
+    const { session } = startArcade(dom, { focusRef: { focus() {} } });
+    assert.equal(session.getState(), 'running', 'the session must survive a persisted closed state');
+    assert.equal(dom.body.children.length, 1, 'the game window must really be mounted');
+    assert.equal(JSON.parse(dom.storageGet('yuan27.arcade.window.v1')).closed, undefined, 'closed must be cleared');
+    session.destroy();
+    assert.equal(dom.body.children.length, 0);
   } finally { dom.restore(); }
 });
