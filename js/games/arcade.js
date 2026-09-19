@@ -4,7 +4,12 @@
 //  shell.ui.openGameSession(...) 注入，因此本模块在无 DOM 环境可完整测试。
 // ============================================================
 import { createStore } from './storage.js';
-import { meta as pongMeta, createGame as createPong } from './pong.js';
+import { meta as pongMeta, createGame as createPong, C as PONG, winsNeeded } from './pong.js';
+
+// 赛制文案：由常量推导，避免改了 BEST_OF 而文案没跟上
+export const PONG_FORMAT = PONG.BEST_OF > 1
+  ? `Best of ${PONG.BEST_OF} - first to ${winsNeeded()} games wins the match, ${PONG.WIN_SCORE} points per game`
+  : `Single game - first to ${PONG.WIN_SCORE} points wins`;
 import { getActive } from './session.js';
 
 export const GAMES = {
@@ -50,8 +55,7 @@ function helpLines() {
     '    arcade pong',
     '',
     'Pong format:',
-    '    Best of 3 - first to 2 games wins the match',
-    '    11 points per game',
+    `    ${PONG_FORMAT}`,
     '',
     'Pong controls:',
     '    W / S                  move player 1 paddle',

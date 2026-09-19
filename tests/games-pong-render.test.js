@@ -196,9 +196,15 @@ test('the adapter restart / isOver / statusLine delegate to the pure functions',
   assert.deepEqual(g.state.score, [0, 0]);
 });
 
-// ---- 三局两胜的界面 ----
+// ---- 赛制界面：默认单局；多局路径用 withBestOf(3) 覆盖 ----
 
-test('intermission shows the game result and the series score', () => {
+function withBestOf(n, fn) {
+  const prev = C.BEST_OF;
+  C.BEST_OF = n;
+  try { return fn(); } finally { C.BEST_OF = prev; }
+}
+
+test('intermission shows the game result and the series score', () => withBestOf(3, () => {
   const s = playing();
   s.games = [1, 0];
   s.gameWinner = 0;
@@ -210,9 +216,9 @@ test('intermission shows the game result and the series score', () => {
   assert.ok(mid.includes('GAMES 1 - 0'));
   assert.ok(mid.includes('BEST OF 3'));
   assert.ok(mid.includes('[Space] Next Game'));
-});
+}));
 
-test('match over shows the series result and the last game score', () => {
+test('match over shows the series result and the last game score', () => withBestOf(3, () => {
   const s = playing();
   s.games = [2, 1];
   s.winner = 0;
@@ -224,26 +230,43 @@ test('match over shows the series result and the last game score', () => {
   assert.ok(mid.includes('PLAYER WINS 2 - 1'));
   assert.ok(mid.includes('LAST GAME 11 - 07'));
   assert.ok(mid.includes('[Space] New Match'));
-});
+}));
 
-test('the score row carries the series progress on both sides', () => {
+test('the score row carries the series progress on both sides', () => withBestOf(3, () => {
   const s = playing();
   s.games = [1, 0];
   const f = frame();
   const row = render(s, f)[f.layout.scoreRow];
   assert.ok(row.includes('1/2'), `left series missing: ${row}`);
   assert.ok(row.includes('0/2'), `right series missing: ${row}`);
-});
+}));
 
-test('the menu advertises the match format', () => {
+test('the menu advertises the single-game format by default', () => {
   const s = createState({ rng: () => 0.5 });
   const f = frame();
   const mid = render(s, f).slice(f.layout.fieldTop, f.layout.fieldBottom + 1).join('\n');
-  assert.ok(mid.includes('BEST OF 3'));
-  assert.ok(mid.includes('FIRST TO 11'));
+  assert.ok(mid.includes('FIRST TO 11 POINTS'), `menu must state the format: ${mid}`);
+  assert.ok(!mid.includes('BEST OF'), 'single game must not advertise a series');
 });
 
-test('intermission and gameover screens stay inside the glyph whitelist', () => {
+test('the default (BEST_OF = 1) shows no series noise and the classic end screen', () => {
+  const s = playing();
+  s.games = [1, 0];
+  s.winner = 0;
+  s.score = [11, 4];
+  s.phase = 'gameover';
+  const f = frame();
+  const rows = render(s, f);
+  assert.ok(!rows[f.layout.scoreRow].includes('/'), 'no x/1 markers in single-game play');
+  const mid = rows.slice(f.layout.fieldTop, f.layout.fieldBottom + 1).join('\n');
+  assert.ok(mid.includes('GAME OVER'));
+  assert.ok(mid.includes('PLAYER WINS'));
+  assert.ok(mid.includes('11 - 04'));
+  assert.ok(mid.includes('[Space] Play Again'));
+  assert.ok(!mid.includes('MATCH OVER'));
+});
+
+test('intermission and gameover screens stay inside the glyph whitelist', () => withBestOf(3, () => {
   const s = playing();
   const f = frame();
   for (const [ph, extra] of [['intermission', { gameWinner: 1 }], ['gameover', { winner: 0 }]]) {
@@ -252,4 +275,4 @@ test('intermission and gameover screens stay inside the glyph whitelist', () => 
     s.phase = ph;
     assert.ok(withinWhitelist(render(s, f)), `phase ${ph} drew an out-of-subset glyph`);
   }
-});
+}));

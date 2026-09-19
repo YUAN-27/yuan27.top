@@ -4,7 +4,7 @@ import { getNode, resolve as resolvePath } from './fs.js';
 import { WHOAMI, PROFILE, NEOFETCH_ART, FUN } from './content.js';
 import { getThemes, setTheme, currentTheme } from './themes.js';
 import { closest } from './suggest.js';
-import { runArcade } from './games/arcade.js';
+import { runArcade, PONG_FORMAT } from './games/arcade.js';
 
 const escapeHtml = (s) =>
   String(s).replace(/[&<>"']/g, (c) => ({
@@ -463,8 +463,7 @@ Usage:
     arcade --reset         reset arcade data (scores, mute)
 
 Pong format:
-    Best of 3 - first to 2 games wins the match
-    11 points per game
+    ${PONG_FORMAT}
 
 Pong controls:
     W / S                  move player 1 paddle

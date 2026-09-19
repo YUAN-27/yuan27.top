@@ -18,7 +18,9 @@ export const C = {
   MAX_ANGLE: 0.84,      // 出射角上限 ≈48°
   PADDLE_SPIN: 0.12,    // 挡板移动对出射角的轻微影响
   WIN_SCORE: 11,        // 单局：先到 11 分
-  BEST_OF: 3,           // 比赛：三局两胜（先赢 2 局者胜）
+  // 赛制：1 = 单局定胜负（当前）；改成 3 就是三局两胜（先赢 2 局）。
+  // 代码路径已备好：BEST_OF > 1 时才会出现「局间」与「MATCH OVER」。
+  BEST_OF: 1,
   SERVE_DELAY: 0.9,
   AI_SPEED: { easy: 0.72, normal: 1.05 },
   AI_DEAD: 0.012,
@@ -28,8 +30,8 @@ export const C = {
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 
-// 三局两胜 ⇒ 需要赢 2 局（由 BEST_OF 推导，改常量即可）
-export const WINS_NEEDED = Math.ceil(C.BEST_OF / 2);
+// 需要赢几局（运行时从 BEST_OF 推导，改常量即生效）
+export const winsNeeded = () => Math.ceil(C.BEST_OF / 2);
 
 // 双方名称（渲染与文案共用）
 export function sideName(state, i) {
@@ -143,9 +145,10 @@ function endGame(state, who) {
   state.games[who] += 1;
   state.gameWinner = who;
   state.vel = { x: 0, y: 0 };
-  if (state.games[who] >= WINS_NEEDED) {
+  const need = winsNeeded();
+  if (state.games[who] >= need) {
     state.winner = who;
-    state.phase = 'gameover';       // 整场比赛结束
+    state.phase = 'gameover';       // 整场比赛结束（单局制下就是这局结束）
     state.events.push('over');      // session 用它记录战绩
   } else {
     state.phase = 'intermission';   // 局间：等 Space 开下一局
@@ -237,7 +240,9 @@ export function handleKey(state, key) {
 export function statusLine(state) {
   if (state.phase === 'menu') return '[1] Single Player   [2] Two Players   [Q] Quit';
   if (state.phase === 'intermission') return '[Space] Next Game   [ESC] Quit';
-  if (state.phase === 'gameover') return '[Space] New Match   [ESC] Quit';
+  if (state.phase === 'gameover') {
+    return C.BEST_OF > 1 ? '[Space] New Match   [ESC] Quit' : '[Space] Play Again   [ESC] Quit';
+  }
   if (state.mode === 'two') return '[W/S] P1   [Up/Down] P2   [M] Mute   [ESC] Quit';
   return '[W/S] Move   [M] Mute   [ESC] Quit';
 }
@@ -267,10 +272,14 @@ export function render(state, frame) {
   const right = pad(state.score[1]);
   blit(rows, Math.max(2, L.cx - 8), L.scoreRow, left);
   blit(rows, Math.min(L.cols - 4, L.cx + 6), L.scoreRow, right);
-  const g0 = `${state.games[0]}/${WINS_NEEDED}`;
-  const g1 = `${state.games[1]}/${WINS_NEEDED}`;
-  blit(rows, 2, L.scoreRow, g0);
-  blit(rows, Math.max(L.cx + 12, L.cols - 3 - g1.length), L.scoreRow, g1);
+  // 单局制不在比分行上显示局分（没意义）
+  if (C.BEST_OF > 1) {
+    const need = winsNeeded();
+    const g0 = `${state.games[0]}/${need}`;
+    const g1 = `${state.games[1]}/${need}`;
+    blit(rows, 2, L.scoreRow, g0);
+    blit(rows, Math.max(L.cx + 12, L.cols - 3 - g1.length), L.scoreRow, g1);
+  }
 
   const fieldRows = L.fieldRows;
   const toRow = (y) => L.fieldTop + clampRow(y * (fieldRows - 1), 0, fieldRows - 1);
@@ -283,7 +292,9 @@ export function render(state, frame) {
     put(-1, '[1] Single Player');
     put(1, '[2] Two Players');
     put(3, '[Q] Quit');
-    put(5, `BEST OF ${C.BEST_OF}  -  FIRST TO ${C.WIN_SCORE}`);
+    put(5, C.BEST_OF > 1
+      ? `BEST OF ${C.BEST_OF}  -  FIRST TO ${C.WIN_SCORE}`
+      : `FIRST TO ${C.WIN_SCORE} POINTS`);
     return rows;
   }
 
@@ -302,10 +313,18 @@ export function render(state, frame) {
     const cx = L.cx;
     const mid = L.fieldTop + Math.floor(fieldRows / 2);
     const put = (dy, text) => blit(rows, cx - Math.floor(text.length / 2), mid + dy, text);
-    put(-3, 'MATCH OVER');
-    put(-1, `${sideName(state, state.winner)} WINS ${state.games[0]} - ${state.games[1]}`);
-    put(1, `LAST GAME ${pad(state.score[0])} - ${pad(state.score[1])}`);
-    put(3, '[Space] New Match');
+    if (C.BEST_OF > 1) {
+      put(-3, 'MATCH OVER');
+      put(-1, `${sideName(state, state.winner)} WINS ${state.games[0]} - ${state.games[1]}`);
+      put(1, `LAST GAME ${pad(state.score[0])} - ${pad(state.score[1])}`);
+      put(3, '[Space] New Match');
+    } else {
+      // 单局定胜负：沿用最初的结束画面
+      put(-2, 'GAME OVER');
+      put(0, `${sideName(state, state.winner)} WINS`);
+      put(2, `${pad(state.score[0])} - ${pad(state.score[1])}`);
+      put(4, '[Space] Play Again');
+    }
     return rows;
   }
 

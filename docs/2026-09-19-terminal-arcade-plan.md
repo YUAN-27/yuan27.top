@@ -3318,3 +3318,12 @@ Task 10 的真实布局/拖拽/缩放/最大化、焦点陷阱与 Tab、`ResizeO
 - 新局发球朝上一局的失分方；`nextGame()` 与 `restart()` 语义分离（下一局 vs 新比赛）。
 - 顺带把**战绩真正落库**：此前 `yuan27.arcade.v1` 的 `gamesPlayed/playerWins/aiWins/bestScore` 从未被写过，现在在比赛结束事件里由 session 写入一次（写失败静默）。
 - 测试 +14（`pong` 25 / `pong-render` 19 / `session` 19），全量 **232/232**。
+
+### 赛制定稿：单局定胜负（作者最终要求）
+
+先按要求做成三局两胜，随后作者改回**单局先到 11 分**。实现方式不是删代码，而是**常量驱动**：
+
+- `C.BEST_OF = 1` ⇒ `winsNeeded() = ceil(BEST_OF/2) = 1` ⇒ 首局即比赛；`intermission` 分支不可达（保留）。
+- 所有多局相关 UI（比分行 `x/1`、菜单 `BEST OF`、`MATCH OVER`、`New Match`）**按 `BEST_OF > 1` 条件化**，单局制下完全不出现。
+- 帮助文案改为 `PONG_FORMAT`（arcade.js，从 `BEST_OF`/`WIN_SCORE` 推导），避免改常量后文档漂移。
+- 多局路径用 `withBestOf(3, fn)` 测试辅助保留覆盖：三局两胜的局间、发球方向、赛点结束、新比赛全部仍被测到。

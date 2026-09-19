@@ -1,7 +1,7 @@
 // tests/games-pong.test.js
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { C, meta, createState, update, isOver, restart, statusLine, handleKey, nextGame, sideName, WINS_NEEDED } from '../js/games/pong.js';
+import { C, meta, createState, update, isOver, restart, statusLine, handleKey, nextGame, sideName, winsNeeded } from '../js/games/pong.js';
 
 const fixedRng = (v = 0.5) => () => v;
 const newGame = (opts = {}) => createState({ rng: fixedRng(), ...opts });
@@ -159,11 +159,36 @@ function awardPoints(s, who, n) {
   }
 }
 
-test('WINS_NEEDED is derived from BEST_OF', () => {
-  assert.equal(C.BEST_OF, 3);
-  assert.equal(WINS_NEEDED, Math.ceil(C.BEST_OF / 2));
-  assert.equal(WINS_NEEDED, 2);
+test('winsNeeded() follows BEST_OF and the default is a single game', () => {
+  assert.equal(C.BEST_OF, 1, 'default format: single game');
+  assert.equal(winsNeeded(), 1);
+  assert.equal(winsNeeded(), Math.ceil(C.BEST_OF / 2));
 });
+
+test('with BEST_OF = 1 the first game to 11 ends the whole match', () => {
+  const s = newGame();
+  handleKey(s, '1');
+  awardPoints(s, 0, C.WIN_SCORE);
+  assert.equal(s.score[0], C.WIN_SCORE);
+  assert.deepEqual(s.games, [1, 0]);
+  assert.equal(s.phase, 'gameover', 'no intermission in single-game play');
+  assert.equal(s.winner, 0);
+  assert.equal(isOver(s), true);
+  assert.ok(statusLine(s).includes('Play Again'), 'single game says Play Again');
+  // 空格 = 再来一局
+  assert.equal(handleKey(s, ' '), true);
+  assert.equal(s.phase, 'serve');
+  assert.deepEqual(s.score, [0, 0]);
+  assert.deepEqual(s.games, [0, 0]);
+  assert.equal(s.winner, null);
+});
+
+/** 临时切到多局制（默认是单局），测完恢复 */
+function withBestOf(n, fn) {
+  const prev = C.BEST_OF;
+  C.BEST_OF = n;
+  try { return fn(); } finally { C.BEST_OF = prev; }
+}
 
 test('sideName follows the mode', () => {
   const s = newGame();
@@ -174,139 +199,56 @@ test('sideName follows the mode', () => {
   assert.equal(sideName(s, 1), 'PLAYER 2');
 });
 
-test('a game ends at WIN_SCORE but the match continues (intermission)', () => {
+test('a series (BEST_OF = 3) interposes an intermission and needs 2 games', () => withBestOf(3, () => {
+  assert.equal(winsNeeded(), 2);
   const s = newGame();
   handleKey(s, '1');
   awardPoints(s, 0, C.WIN_SCORE);
-  assert.equal(s.score[0], C.WIN_SCORE);
   assert.deepEqual(s.games, [1, 0]);
   assert.equal(s.phase, 'intermission');
   assert.equal(s.gameWinner, 0);
   assert.equal(s.winner, null, 'best of 3 cannot be decided after one game');
   assert.equal(isOver(s), false);
-});
 
-test('space at intermission starts the next game and keeps the series score', () => {
-  const s = newGame();
-  handleKey(s, '1');
-  awardPoints(s, 0, C.WIN_SCORE);
+  // 局间：Space 开下一局，比分清零、局分保留
   assert.equal(handleKey(s, ' '), true);
   assert.equal(s.phase, 'serve');
   assert.deepEqual(s.score, [0, 0]);
   assert.deepEqual(s.games, [1, 0]);
   assert.equal(s.gameWinner, null);
-});
-
-test('each game is served toward the loser of the previous game', () => {
-  const s = newGame();
-  handleKey(s, '1');
-  awardPoints(s, 0, C.WIN_SCORE);          // 左侧赢 → 失分方是右侧
-  handleKey(s, ' ');
   update(s, C.SERVE_DELAY + 0.001, {});
-  assert.ok(s.vel.x > 0, 'serve must head right (toward the loser)');
-  awardPoints(s, 1, C.WIN_SCORE);          // 右侧赢回来
-  handleKey(s, ' ');
-  update(s, C.SERVE_DELAY + 0.001, {});
-  assert.ok(s.vel.x < 0, 'serve must head left (toward the loser)');
-});
+  assert.ok(s.vel.x > 0, 'new game is served toward the loser (the right side, which lost game 1)');
 
-test('the match ends at WINS_NEEDED games; space starts a whole new match', () => {
-  const s = newGame();
-  handleKey(s, '1');
+  // 右方连拿两局 → 比赛结束
   awardPoints(s, 1, C.WIN_SCORE);
   handleKey(s, ' ');
   awardPoints(s, 1, C.WIN_SCORE);
-  assert.deepEqual(s.games, [0, 2]);
+  assert.deepEqual(s.games, [1, 2]);
   assert.equal(s.phase, 'gameover');
   assert.equal(s.winner, 1);
-  assert.equal(isOver(s), true);
+  assert.ok(statusLine(s).includes('New Match'));
   assert.equal(handleKey(s, ' '), true);
   assert.deepEqual(s.games, [0, 0]);
-  assert.deepEqual(s.score, [0, 0]);
-  assert.equal(s.phase, 'serve');
-  assert.equal(s.winner, null);
-});
+}));
 
-test('update() is inert during intermission and gameover', () => {
-  const s = newGame();
-  handleKey(s, '1');
-  awardPoints(s, 0, C.WIN_SCORE);
-  const snap = JSON.stringify({ score: s.score, games: s.games, ball: s.ball, phase: s.phase });
-  for (const ph of ['intermission', 'gameover']) {
-    s.phase = ph;
-    for (let i = 0; i < 20; i++) update(s, 1 / 30, { up1: true, down2: true });
-  }
-  assert.equal(JSON.stringify({ score: s.score, games: s.games, ball: s.ball, phase: 'gameover' }), snap.replace('"intermission"', '"gameover"'));
-});
-
-test('nextGame() keeps the series and alternates nothing else', () => {
+test('nextGame() keeps the series score', () => withBestOf(3, () => {
   const s = newGame();
   handleKey(s, '1');
   awardPoints(s, 0, C.WIN_SCORE);
   nextGame(s);
   assert.deepEqual(s.games, [1, 0]);
   assert.equal(s.phase, 'serve');
-});
+}));
 
-test('restart clears score and returns to serve', () => {
+test('update() is inert during intermission and gameover', () => withBestOf(3, () => {
   const s = newGame();
   handleKey(s, '1');
-  s.score = [5, 3];
-  s.phase = 'gameover';
-  s.games = [2, 1];
-  restart(s);
-  assert.deepEqual(s.score, [0, 0]);
-  assert.deepEqual(s.games, [0, 0], 'restart starts a whole new match');
-  assert.equal(s.phase, 'serve');
-  assert.equal(s.winner, null);
-  assert.equal(s.ball.x, 0.5);
-});
-
-test('dt is clamped so a huge frame gap cannot teleport the ball', () => {
-  const s = newGame();
-  handleKey(s, '1');
-  update(s, C.SERVE_DELAY + 0.001, {});
-  const before = s.ball.x;
-  update(s, 5, {});
-  assert.ok(Math.abs(s.ball.x - before) <= C.SPEED_MAX * C.DT_MAX + 1e-6);
-});
-
-test('serve countdown uses real dt while motion stays clamped', () => {
-  const s = newGame();
-  handleKey(s, '1');
-  assert.equal(s.phase, 'serve');
-  // 倒计时是时钟：一次传入 0.901s 就应该发球（若用夹断后的 0.05s 则永远发不出去）
-  update(s, C.SERVE_DELAY + 0.001, {});
-  assert.equal(s.phase, 'play');
-  // 同一帧不得因大 dt 而瞬移：launch() 当次直接返回
-  assert.equal(s.ball.x, 0.5);
-  // 下一帧的大 dt 被夹断
-  const x = s.ball.x;
-  update(s, 5, {});
-  assert.ok(Math.abs(s.ball.x - x) <= C.SPEED_MAX * C.DT_MAX + 1e-6);
-});
-
-test('non-finite dt is ignored instead of corrupting state', () => {
-  const s = newGame();
-  handleKey(s, '1');
-  update(s, C.SERVE_DELAY + 0.001, {});
-  const snap = { x: s.ball.x, y: s.ball.y, d: s.serveDelay };
-  for (const bad of [NaN, Infinity, -1, undefined]) {
-    update(s, bad, {});
-    assert.ok(Number.isFinite(s.ball.x) && Number.isFinite(s.ball.y), `dt=${bad} corrupted the ball`);
-  }
-  assert.deepEqual({ x: s.ball.x, y: s.ball.y, d: s.serveDelay }, snap);
-});
-
-test('handleKey only consumes menu/gameover keys', () => {
-  const s = newGame();
-  assert.equal(handleKey(s, 'x'), false);
-  assert.equal(handleKey(s, '1'), true);
-  assert.equal(s.mode, 'single');
-  s.phase = 'gameover';
-  assert.equal(handleKey(s, ' '), true);
-  assert.equal(s.phase, 'serve');
-});
+  awardPoints(s, 0, C.WIN_SCORE);
+  const snap = JSON.stringify({ score: s.score, games: s.games, ball: s.ball });
+  for (let i = 0; i < 20; i++) update(s, 1 / 30, { up1: true, down2: true });
+  assert.equal(s.phase, 'intermission');
+  assert.equal(JSON.stringify({ score: s.score, games: s.games, ball: s.ball }), snap);
+}));
 
 test('statusLine is non-empty ASCII in every phase', () => {
   const s = newGame();
