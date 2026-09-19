@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { commands, commandNames, registry, suggestCommand } from '../js/commands.js';
 import { complete } from '../js/completion.js';
-import { resolve } from '../js/fs.js';
+import { resolve, getNode } from '../js/fs.js';
 
 function makeShell(initialCwd = '/') {
   const out = [];
@@ -272,4 +272,66 @@ test('sound command rejects invalid arguments', async () => {
 
 test('sound command is in the Settings category', () => {
   assert.equal(registry.sound.category, 'Settings');
+});
+
+// ---- P2: uniform project format ----
+test('every project readme follows the same six-field format', () => {
+  const fields = ['Name', 'Summary', 'Tech Stack', 'Highlights', 'Links', 'Status'];
+  const projects = Object.keys(getNode('/projects').children);
+  assert.ok(projects.length >= 4, `项目数量过少: ${projects.length}`);
+  for (const p of projects) {
+    const file = getNode(`/projects/${p}/readme.md`);
+    assert.ok(file, `/projects/${p}/readme.md 不存在`);
+    for (const f of fields) {
+      assert.match(file.content, new RegExp(`^${f}\\s`, 'm'), `/projects/${p}/readme.md 缺少 ${f}`);
+    }
+  }
+});
+
+// ---- P2: blog metadata ----
+test('every blog post carries title + date/tags metadata', () => {
+  const blog = getNode('/blog');
+  let count = 0;
+  for (const cat of Object.keys(blog.children)) {
+    const dir = blog.children[cat];
+    for (const name of Object.keys(dir.children)) {
+      const post = dir.children[name];
+      count += 1;
+      assert.ok(post.title, `${cat}/${name} 缺少 title`);
+      assert.match(post.content, /^date\s/m, `${cat}/${name} 缺少 date`);
+      assert.match(post.content, /^tags\s/m, `${cat}/${name} 缺少 tags`);
+    }
+  }
+  assert.ok(count >= 3, `文章过少: ${count}`);
+});
+
+test('ls shows the article title for blog posts', async () => {
+  const { shell, out } = makeShell('/blog/ai');
+  await commands.ls(shell, []);
+  const html = firstOf(out, 'lines').join('');
+  assert.match(html, /LLM Agents 入门/);
+  assert.match(html, /llm-agents\.md/);
+});
+
+test('open follows a text file that has a url (article link)', async () => {
+  const { shell } = makeShell('/blog/ai');
+  const post = getNode('/blog/ai/llm-agents.md');
+  const opened = [];
+  const orig = globalThis.window;
+  globalThis.window = { open: (u) => opened.push(u) };
+  const had = Object.prototype.hasOwnProperty.call(post, 'url');
+  post.url = 'https://example.com/post';
+  try {
+    await commands.open(shell, ['llm-agents.md']);
+    assert.deepEqual(opened, ['https://example.com/post']);
+  } finally {
+    if (!had) delete post.url;
+    globalThis.window = orig;
+  }
+});
+
+test('open rejects a text file without a url', async () => {
+  const { shell, out } = makeShell('/');
+  await commands.open(shell, ['readme.md']);
+  assert.deepEqual(out[0], ['error', 'open: readme.md: not a link or binary file']);
 });

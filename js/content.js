@@ -219,15 +219,12 @@ AI agents, LLM applications, and backend engineering.
               type: 'file',
               content: `# agent
 
-An LLM-powered agent project.
-
-- 简介: （← 替换此处）
-- 技术栈: Python, LangChain, FastAPI
-- 核心功能: （← 替换此处）
-- 技术难点: （← 替换此处）
-- 个人贡献: （← 替换此处）
-
-Use 'open github' to open the repository.`,
+Name        agent
+Summary     （← 替换此处：一句话说明这个项目是什么）
+Tech Stack  Python · LangChain · FastAPI
+Highlights  （← 替换此处：2–3 条亮点，用 · 分隔）
+Links       'open github'
+Status      （← 替换此处：进行中 / 已完成 / 已归档）`,
             },
             github: {
               type: 'file',
@@ -243,13 +240,12 @@ Use 'open github' to open the repository.`,
               type: 'file',
               content: `# rag
 
-Retrieval-Augmented Generation system.
-
-- 简介: （← 替换此处）
-- 技术栈: （← 替换此处）
-- 核心功能: （← 替换此处）
-
-Use 'open github' to open the repository.`,
+Name        rag
+Summary     （← 替换此处：一句话说明这个项目是什么）
+Tech Stack  （← 替换此处）
+Highlights  （← 替换此处：2–3 条亮点，用 · 分隔）
+Links       'open github'
+Status      （← 替换此处：进行中 / 已完成 / 已归档）`,
             },
             github: {
               type: 'file',
@@ -265,13 +261,12 @@ Use 'open github' to open the repository.`,
               type: 'file',
               content: `# backend
 
-Backend service project.
-
-- 简介: （← 替换此处）
-- 技术栈: （← 替换此处）
-- 核心功能: （← 替换此处）
-
-Use 'open github' to open the repository.`,
+Name        backend
+Summary     （← 替换此处：一句话说明这个项目是什么）
+Tech Stack  （← 替换此处）
+Highlights  （← 替换此处：2–3 条亮点，用 · 分隔）
+Links       'open github'
+Status      （← 替换此处：进行中 / 已完成 / 已归档）`,
             },
             github: {
               type: 'file',
@@ -287,13 +282,12 @@ Use 'open github' to open the repository.`,
               type: 'file',
               content: `# mips
 
-MIPS / CPU course design project.
-
-- 简介: （← 替换此处）
-- 技术栈: Verilog / Logisim ...
-- 核心功能: （← 替换此处）
-
-Use 'open github' to open the repository.`,
+Name        mips
+Summary     （← 替换此处：一句话说明这个项目是什么）
+Tech Stack  Verilog · Logisim（← 替换此处）
+Highlights  （← 替换此处：2–3 条亮点，用 · 分隔）
+Links       'open github'
+Status      （← 替换此处：进行中 / 已完成 / 已归档）`,
             },
             github: {
               type: 'file',
@@ -309,12 +303,12 @@ Use 'open github' to open the repository.`,
               type: 'file',
               content: `# website
 
-This very site — YUAN27.top, a terminal-style portfolio.
-
-- 简介: A virtual Unix terminal as a personal website.
-- 技术栈: Pure HTML + CSS + vanilla JS (ES Modules)
-
-Use 'open github' to open the repository.`,
+Name        website
+Summary     YUAN27.top — 一个以终端为交互界面的个人站点
+Tech Stack  HTML · CSS · Vanilla JS (ES Modules)
+Highlights  零依赖零构建 · 虚拟文件系统 · 可拖动窗口 · 桌面氛围层
+Links       'open github'
+Status      进行中`,
             },
             github: {
               type: 'file',
@@ -334,7 +328,12 @@ Use 'open github' to open the repository.`,
           children: {
             'llm-agents.md': {
               type: 'file',
+              title: 'LLM Agents 入门',
               content: `# LLM Agents 入门
+
+date    2026-01-01   （← 替换此处）
+tags    LLM · Agent  （← 替换此处）
+link    （← 替换此处：站外文章链接，填了就可用 'open' 打开）
 
 （← 替换此处：正文）`,
             },
@@ -345,7 +344,12 @@ Use 'open github' to open the repository.`,
           children: {
             'os-notes.md': {
               type: 'file',
+              title: '操作系统笔记',
               content: `# 操作系统笔记
+
+date    2026-01-01   （← 替换此处）
+tags    OS · C        （← 替换此处）
+link    （← 替换此处：站外文章链接）
 
 （← 替换此处：正文）`,
             },
@@ -356,7 +360,12 @@ Use 'open github' to open the repository.`,
           children: {
             'hello-world.md': {
               type: 'file',
+              title: 'Hello World',
               content: `# Hello World
+
+date    2026-01-01   （← 替换此处）
+tags    thoughts     （← 替换此处）
+link    （← 替换此处：站外文章链接）
 
 第一篇文章。
 

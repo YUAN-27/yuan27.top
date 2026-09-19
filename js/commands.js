@@ -165,6 +165,9 @@ Example:
         if (child.binary) {
           return `<a class="link" href="${escapeHtml(child.url)}" target="_blank" rel="noopener">${escapeHtml(name)}</a> <span class="muted">(binary)</span>`;
         }
+        if (child.title) {
+          return `<span>${escapeHtml(child.title)}</span> <span class="muted">${escapeHtml(name)}</span>`;
+        }
         return `<span>${escapeHtml(name)}</span>`;
       });
 
@@ -247,20 +250,21 @@ Example:
   open: {
     category: 'Explore',
     summary: 'Open external resource',
-    help: `open - open a link or binary file
+    help: `open - open a link, binary file or article link
 
 Usage:
     open <file>
 
 Example:
-    open resume/resume.pdf`,
+    open resume/resume.pdf
+    open blog/ai/llm-agents.md`,
     async run(shell, args) {
       const arg = args[0];
       if (!arg) return shell.error('open: missing file operand');
       const path = resolvePath(shell.cwd, arg);
       const node = getNode(path);
       if (!node) return shell.error(`open: ${arg}: No such file or directory`);
-      if (node.link || node.binary) {
+      if (node.url) {
         window.open(node.url, '_blank', 'noopener,noreferrer');
         return shell.success(`Opening ${arg} …`);
       }
