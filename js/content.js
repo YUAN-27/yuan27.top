@@ -5,6 +5,20 @@
 //  待补充清单见 docs/2026-09-19-content-tofill.md
 // ============================================================
 
+// ============================================================
+//  站点字标（与 og 分享图 og.png 完全一致的表现形式）
+//  YUAN = --text 前景色，27 = --dir 强调蓝，粗体大字号。
+//  ← 替换此处：改 BRAND_NAME / BRAND_ACCENT / BRAND_NOTE 即可
+// ============================================================
+export const BRAND_NAME = 'YUAN';
+export const BRAND_ACCENT = '27';
+export const BRAND_NOTE = '# unix-terminal portfolio';
+
+// 供 main.js 用 printLines（HTML 行）渲染，实现双色分段
+export const WORDMARK_HTML =
+  `<span class="wm-name">${BRAND_NAME}</span>` +
+  `<span class="wm-num">${BRAND_ACCENT}</span>`;
+
 export const LOGO = String.raw`
 __   ___   _   _    _   _ ____ _____ _              
 \ \ / / | | | / \  | \ | |___ \___  | |_ ___  _ __  

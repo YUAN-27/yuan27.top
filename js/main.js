@@ -4,7 +4,7 @@ import { History } from './history.js';
 import { complete } from './completion.js';
 import { initTheme, getThemes, currentTheme } from './themes.js';
 import { resolve as resolvePath } from './fs.js';
-import { LOGO, WELCOME, BOOT_LINES, ENTRIES, frameLogo } from './content.js';
+import { WELCOME, BOOT_LINES, ENTRIES, WORDMARK_HTML, BRAND_NOTE } from './content.js';
 import { initDesktop, makeOpener, DESKTOP_RAIL_WIDTH } from './desktop.js';
 import { initTaskbar, buildMenu, itemCommands } from './taskbar.js';
 import { makeKeyHandler } from './keys.js';
@@ -199,13 +199,15 @@ function startClock() {
 
 // ---- boot screen（可重复播放：重新打开终端时也会走这里）----
 async function printBootScreen() {
-  const logoLines = frameLogo(LOGO);
   // 每次进入（含刷新/重开）都逐行打印；点击/按键可跳过
   const d = (ms) => (skipBoot ? 0 : ms);
 
   await term.printText(BOOT_LINES, { className: 'line-muted', lineDelay: d(150) });
   await term.printText([''], { lineDelay: 0 });
-  await term.printText(logoLines, { className: 'logo', lineDelay: d(70) });
+  // 站点字标：❯ whoami → YUAN27（与 og.png 同款表现）
+  term.echo('whoami');
+  await term.printLines([WORDMARK_HTML], { className: 'line line-wordmark', lineDelay: 0 });
+  await term.printText([BRAND_NOTE], { className: 'line-muted line-wordmark-note', lineDelay: d(60) });
   await term.printText([''], { lineDelay: 0 });
   await term.printText(WELCOME, { lineDelay: d(120) });
   await term.printText([''], { lineDelay: 0 });
