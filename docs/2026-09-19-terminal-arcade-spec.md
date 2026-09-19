@@ -530,14 +530,24 @@ Key：`yuan27.arcade.v1`（不污染 `yuan27.window.v2` / `yuan27.sound.v1` / `y
 
 `node --test tests/*.test.js`，**环境无 jsdom、无 devDependencies** ⇒ 只有纯函数 + 注入依赖可测；`host.js` 的 DOM 部分不写单测，靠 §15 手工验收。新增测试文件：
 
-| 测试文件 | 覆盖 |
-|---|---|
-| `tests/games-arcade.test.js` | 命令面：`arcade` / `arcade pong` / `--help` / `--list` / `--reset` / 未知游戏 / 重复启动拒绝（用假 `shell.ui`） |
-| `tests/games-pong.test.js` | 初始状态、球移动、挡板移动、上/下墙碰撞（含位置修正）、挡板碰撞、**高速不穿透**（子步长）、出射角随撞击位置变化、加速与上限、得分与发球方向、先到 11 结束、restart、AI 行为（含死区、不预测）、rng 注入可复现 |
-| `tests/games-renderer.test.js` | `gridToString` 行数/列宽一致、`diffRows` 正确性、`layoutFor` 边界（极小/极大 cols/rows）、**字符集白名单**（所有输出字符 ∈ ASCII ∪ 允许区间）、resize 后状态不变 |
-| `tests/games-input.test.js` | `W/S/↑/↓/ESC/Q/Space/M/Tab` 映射、`preventDefault` 白名单（其它键不透传拦截）、ESC 消费标记、blur 清空 pressed、重复 keydown 不重复计数 |
-| `tests/games-storage.test.js` | 正常读写、空数据、损坏 JSON、额外字段、版本不兼容重建、写入失败降级、`--reset` 只删一个 key |
-| `tests/games-session.test.js` | 假 host 下的完整生命周期：start → running → pause/resume → end → destroy；**重复 destroy 无副作用**；重复 start 拒绝；ESC 路径；visibilitychange 路径；`exited` Promise 只 resolve 一次；清理清单断言（raf 取消 1 次、teardown 1 次、activeSession 归空） |
+| 测试文件 | 用例数 | 覆盖 |
+|---|---|---|
+| `tests/games-storage.test.js` | 11 | 正常读写、空、损坏 JSON、版本不符、类型错、写入失败降级、`--reset` 只删一个 key |
+| `tests/games-pong.test.js` | 18 | 初始状态、球/挡板移动、上下墙（含位置修正）、挡板碰撞、出射角、加速上限、**高速不穿透**、得分与发球方向、先到 11、restart、dt 夹断、非有限 dt、`serveDelay` 用真实 dt |
+| `tests/games-pong-ai.test.js` | 6 | 只在球逼近时追击、死区不抖动、限速、easy<normal、`setDifficulty` 校验、不出界 |
+| `tests/games-renderer.test.js` | 12 | 字符白名单（含区间边界）、`blankGrid`/`blit`/`box`、`layoutFor` 边界与钳制、`buildFrame`、虚线中线、`gridToString`、`diffRows` |
+| `tests/games-pong-render.test.js` | 14 | 行为/尺寸、比分、球、菜单、结束画面、diff 稳定、静态层不被污染、越界坐标、**适配器 `createGame` 契约** |
+| `tests/games-input.test.js` | 7 | 全部按键映射、`preventDefault` 白名单、pressed 集合、自重复安全、`clearInput`、ESC 消费标记 |
+| `tests/games-session.test.js` | 17 | 状态机全流程、重复启动拒绝、假 host 下的 pause/resume、ESC 消费与焦点、**幂等 destroy**、resize 不重置、抛错自愈、无残留帧 |
+| `tests/games-arcade.test.js` | 11 | 命令面全集、未知游戏、`--reset`、`await exited`、启动失败兜底、**真 session 守卫** |
+| `tests/games-host.test.js` | 6 | 契约完整性、惰性宿主不抛、**挂载到容器**、测量节点不进 screen、只重写变化行、`setStatus` |
+| `tests/games-integration.test.js` | 4 | **全链路**（mount→菜单→对局→ESC 清理）、每帧字符白名单、连续 3 次会话零残留、暂停清键 |
+| `tests/games-registration.test.js` | 3 | registry 归类、`commandNames`/Tab 补全自动收录、`help` 输出 |
+| `tests/sound.test.js` | 2 | `blip` 存在且安全失败、关闭时静音且 `key/enter` 行为不变 |
+
+> `games-host` / `games-integration` 用**自建最小 DOM 桩**（无 jsdom、零依赖）。那是被证据推翻的原始判断：
+> 计划原本写「host 的 DOM 部分不写单测」，但轻量桩抓住了 3 个真缺陷（见 §16.1）。桩的保真度本身
+> （`textContent=''` 清空子节点、`append(fragment)` 搬子节点）也必须被怀疑 —— 第一版桩曾让测试假阳性。
 
 不变量（每个测试都要守）：
 
@@ -602,6 +612,20 @@ export function createGame({ cols, rows, rng, storage, frame }) {
 | 5 | **taskbar 单窗口假设** | 游戏窗口不注册进 taskbar；不改 taskbar |
 | 6 | **移动端焦点** | `restoreFocus()` 必须跳过 `≤640px`，否则退出游戏会弹出软键盘 |
 | 7 | **`sound.js` 是唯一被改的既有模块** | 只新增 `blip()`，现有方法签名与行为不变 |
+
+---
+
+## 16.1 Phase 5 实现期间发现并修复的缺陷
+
+| # | 缺陷 | 根因 | 抓到它的东西 |
+|---|---|---|---|
+| B9 | `createHost({ mount })` 的挂载点参数被同名 `function mount()` **声明提升覆盖** ⇒ `host.mount()` 必崩 | 参数与函数同名；惰性宿主测试只走 `mount = null` 分支 | 端到端集成测试 |
+| B10 | 量字宽的隐藏 span 挂进 `screen`，`paint()` 首次重建 `textContent=''` 把它清掉 ⇒ `cellW` 退化、列数算错 | 测量节点放在了会被重建的容器内 | 端到端集成测试 |
+| B11 | `pong.createGame()` 返回纯状态对象，session 需要带方法的游戏对象 ⇒ `game.render is not a function` | 两个单元测试各自用桩，接缝无人跑 | 端到端集成测试 |
+
+修法：参数改名 `container`；测量节点挂到窗口根节点、显式拷贝 font、`line-height` 兼容倍数与 px；拆成 `createState`（纯）/ `createGame`（会话侧适配器，签名见 §14）。
+
+**教训**：桩与桩之间的接缝是盲区 ⇒ 必须有一条真正把全链路串起来的测试；且 DOM 桩的保真度本身要被怀疑。
 
 ---
 

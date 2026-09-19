@@ -43,7 +43,8 @@ createStore(storage?) → { load(): Data, save(data): boolean, reset(): void, up
 
 // pong.js
 meta = { id:'pong', title:'PONG', summary:'Classic Pong' }
-createGame({ rng?, difficulty? }) → PongState      // phase: 'menu'|'serve'|'play'|'gameover'
+createState({ rng?, difficulty? }) → state         // 纯状态：phase 'menu'|'serve'|'play'|'gameover'
+createGame({ rng?, difficulty? }) → game           // 会话侧适配器：{ state, update, handleKey, render, statusLine, isOver, restart, resize }
 update(state, dt, axes) → state                     // axes = { up1, down1, up2, down2 }
 handleKey(state, key) → boolean                     // true = 已消费（仅 1/2/Space/Enter）
 render(state, frame) → string[]                     // 把动态对象画进 frame.grid
@@ -345,7 +346,7 @@ git commit -m "feat(arcade): add versioned arcade storage with corrupt-data tole
 
 **Interfaces:**
 - Consumes: 无
-- Produces: `meta`, `C`（常量）、`createGame({rng,difficulty})`、`update(state,dt,axes)`、`serve/launch` 内部、`handleKey`、`isOver`、`restart`、`statusLine`
+- Produces: `meta`, `C`（常量）、`createState({rng,difficulty})`、`update(state,dt,axes)`、`serve/launch` 内部、`handleKey`、`isOver`、`restart`、`statusLine`
 
 - [ ] **Step 1: 写失败测试**
 
@@ -353,10 +354,10 @@ git commit -m "feat(arcade): add versioned arcade storage with corrupt-data tole
 // tests/games-pong.test.js
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { C, meta, createGame, update, isOver, restart, statusLine, handleKey } from '../js/games/pong.js';
+import { C, meta, createState, update, isOver, restart, statusLine, handleKey } from '../js/games/pong.js';
 
 const fixedRng = (v = 0.5) => () => v;
-const newGame = (opts = {}) => createGame({ rng: fixedRng(), ...opts });
+const newGame = (opts = {}) => createState({ rng: fixedRng(), ...opts });
 const speed = (s) => Math.hypot(s.vel.x, s.vel.y);
 
 test('meta exposes id/title/summary', () => {
@@ -626,7 +627,7 @@ function makePaddle(i) {
   return { x: C.PADDLE_X[i], w: C.PADDLE_W, y: 0.5 - C.PADDLE_H / 2, h: C.PADDLE_H, vy: 0 };
 }
 
-export function createGame({ rng = Math.random, difficulty = 'normal' } = {}) {
+export function createState({ rng = Math.random, difficulty = 'normal' } = {}) {
   return {
     phase: 'menu',          // menu | serve | play | gameover
     mode: 'single',         // single | two
@@ -821,7 +822,7 @@ git commit -m "feat(arcade): add pure pong model with substepped collision"
 - Test: `tests/games-pong-ai.test.js`
 
 **Interfaces:**
-- Consumes: Task 2 的 `createGame`、`update`、`C`
+- Consumes: Task 2 的 `createState`、`update`、`C`
 - Produces: `setDifficulty(state, name) → boolean`
 
 - [ ] **Step 1: 写失败测试**
@@ -830,10 +831,10 @@ git commit -m "feat(arcade): add pure pong model with substepped collision"
 // tests/games-pong-ai.test.js
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { C, createGame, update, setDifficulty } from '../js/games/pong.js';
+import { C, createState, update, setDifficulty } from '../js/games/pong.js';
 
 const playing = () => {
-  const s = createGame({ rng: () => 0.5 });
+  const s = createState({ rng: () => 0.5 });
   s.phase = 'play';
   s.mode = 'single';
   s.speed = C.SPEED0;
@@ -885,7 +886,7 @@ test('easy is slower than normal', () => {
 });
 
 test('setDifficulty validates input', () => {
-  const s = createGame();
+  const s = createState();
   assert.equal(setDifficulty(s, 'easy'), true);
   assert.equal(s.difficulty, 'easy');
   assert.equal(setDifficulty(s, 'nope'), false);
@@ -1207,7 +1208,7 @@ git commit -m "feat(arcade): add character-grid renderer with font-subset whitel
 - Test: `tests/games-pong-render.test.js`
 
 **Interfaces:**
-- Consumes: Task 2 的 `createGame`/`update`/`C`，Task 4 的 `buildFrame`/`blit`/`glyphs`/`gridToString`
+- Consumes: Task 2 的 `createState`/`update`/`C`，Task 4 的 `buildFrame`/`blit`/`glyphs`/`gridToString`
 - Produces: `render(state, frame) → string[]`
 
 - [ ] **Step 1: 写失败测试**
@@ -1216,7 +1217,7 @@ git commit -m "feat(arcade): add character-grid renderer with font-subset whitel
 // tests/games-pong-render.test.js
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { C, createGame, render } from '../js/games/pong.js';
+import { C, createState, createGame, render } from '../js/games/pong.js';
 import { buildFrame, withinWhitelist, diffRows } from '../js/games/renderer.js';
 
 function frame(cols = 60, rows = 20) {
@@ -1230,7 +1231,7 @@ const countOf = (grid, ch) => grid.join('').split(ch).length - 1;   // 供后续
 // 显式进入对局：phase='menu' 时 render() 走菜单分支直接 return，
 // 不设 phase 的「渲染测试」会空转（数到的是菜单文本里的字符）。
 function playing(score = [0, 0]) {
-  const s = createGame({ rng: () => 0.5 });
+  const s = createState({ rng: () => 0.5 });
   s.phase = 'play';
   s.score = score;
   s.speed = 0.5;
@@ -1239,7 +1240,7 @@ function playing(score = [0, 0]) {
 }
 
 test('render returns one row per layout row, all whitelisted', () => {
-  const s = createGame({ rng: () => 0.5 });
+  const s = createState({ rng: () => 0.5 });
   const f = frame();
   const rows = render(s, f);
   assert.equal(rows.length, f.layout.rows);
@@ -1248,7 +1249,7 @@ test('render returns one row per layout row, all whitelisted', () => {
 });
 
 test('render draws the score on the score row', () => {
-  const s = createGame({ rng: () => 0.5 });
+  const s = createState({ rng: () => 0.5 });
   s.score = [7, 5];
   const f = frame();
   const rows = render(s, f);
@@ -1296,7 +1297,7 @@ test('the ball glyph is the only asterisk on screen (no text collision)', () => 
 });
 
 test('menu phase shows the mode choices and hides the ball', () => {
-  const s = createGame({ rng: () => 0.5 });
+  const s = createState({ rng: () => 0.5 });
   const f = frame();
   const rows = render(s, f);
   const mid = rows.slice(f.layout.fieldTop, f.layout.fieldBottom + 1).join('\n');
@@ -1307,7 +1308,7 @@ test('menu phase shows the mode choices and hides the ball', () => {
 });
 
 test('gameover phase shows the winner and final score', () => {
-  const s = createGame({ rng: () => 0.5 });
+  const s = createState({ rng: () => 0.5 });
   s.score = [11, 4];
   s.winner = 0;
   s.phase = 'gameover';
@@ -1319,7 +1320,7 @@ test('gameover phase shows the winner and final score', () => {
 });
 
 test('render is stable: two identical states produce zero diff', () => {
-  const s = createGame({ rng: () => 0.5 });
+  const s = createState({ rng: () => 0.5 });
   const f = frame();
   const a = render(s, f);
   const b = render(s, f);
@@ -1327,7 +1328,7 @@ test('render is stable: two identical states produce zero diff', () => {
 });
 
 test('render preserves the static frame (only dynamic rows differ)', () => {
-  const s = createGame({ rng: () => 0.5 });
+  const s = createState({ rng: () => 0.5 });
   const f = frame();
   const rows = render(s, f);
   const changed = diffRows(f.staticRows, rows);
@@ -1356,6 +1357,54 @@ test('render never writes outside the playfield for extreme positions', () => {
       );
     }
   }
+});
+
+// ---- 会话侧适配器 createGame：集成接缝（session 用假 game、arcade 用假 session，谁都不会暴露错配）----
+
+test('createGame returns the session-facing object, not a bare state', () => {
+  const g = createGame({ rng: () => 0.5 });
+  assert.ok(g.state, 'must expose .state');
+  assert.equal(g.state.phase, 'menu');
+  for (const fn of ['update', 'handleKey', 'render', 'statusLine', 'isOver', 'restart', 'resize']) {
+    assert.equal(typeof g[fn], 'function', `missing ${fn}`);
+  }
+});
+
+test('the adapter keeps state live so the session can read events for sound', () => {
+  const g = createGame({ rng: () => 0.5 });
+  g.handleKey('1');
+  g.update(C.SERVE_DELAY + 0.001, {});
+  assert.equal(g.state.phase, 'play');
+  assert.ok(Array.isArray(g.state.events));
+  g.state.ball.y = 0.02;
+  g.state.vel = { x: 0.001, y: -1 };
+  g.update(1 / 30, {});
+  assert.ok(g.state.events.includes('wall'), 'events must surface for the sfx layer');
+});
+
+test('the adapter renders through the shared frame and resize never resets state', () => {
+  const g = createGame({ rng: () => 0.5 });
+  g.handleKey('1');
+  g.update(C.SERVE_DELAY + 0.001, {});
+  const f = buildFrame({ title: 'T', cols: 60, rows: 20 });
+  const rows = g.render(f);
+  assert.equal(rows.length, f.layout.rows);
+  const snap = { x: g.state.ball.x, y: g.state.ball.y, s: g.state.score.slice() };
+  g.resize({ cols: 100, rows: 30 });
+  assert.deepEqual({ x: g.state.ball.x, y: g.state.ball.y, s: g.state.score.slice() }, snap);
+});
+
+test('the adapter restart / isOver / statusLine delegate to the pure functions', () => {
+  const g = createGame({ rng: () => 0.5 });
+  g.handleKey('1');
+  g.state.score = [11, 3];
+  g.state.winner = 0;
+  g.state.phase = 'gameover';
+  assert.equal(g.isOver(), true);
+  assert.ok(g.statusLine().includes('Space'));
+  g.restart();
+  assert.equal(g.isOver(), false);
+  assert.deepEqual(g.state.score, [0, 0]);
 });
 ```
 
@@ -1438,7 +1487,26 @@ export function render(state, frame) {
 }
 ```
 
-- [ ] **Step 4: 运行测试确认通过**
+```js
+// ---- 会话侧接口适配（spec §14）：把纯函数 API 包成 session 需要的对象接口 ----
+// ⚠️ 这是集成盲区：session 测试用假 game、arcade 测试用假 session，
+//    两者都不会暴露「纯状态对象 vs 带方法的游戏对象」错配（烟测抓到过）。
+export function createGame(opts = {}) {
+  const state = createState(opts);
+  return {
+    state,
+    update: (dt, axes) => update(state, dt, axes),
+    handleKey: (key) => handleKey(state, key),
+    render: (frame) => render(state, frame),
+    statusLine: () => statusLine(state),
+    isOver: () => isOver(state),
+    restart: () => restart(state),
+    resize: () => {},   // 归一化坐标 ⇒ 改尺寸不改模型
+  };
+}
+```
+
+- [ ] **Step 4: 运行测试通过（10 → 14：含 4 条适配器契约测试）**
 
 Run: `node --test tests/games-pong-render.test.js`
 Expected: PASS（10 个测试）
@@ -3169,3 +3237,44 @@ Task 9 sound.blip 补丁打在真实 js/sound.js 上 → 2/2 通过
 ---
 
 之后进入 Phase 5（TDD，按 Task 1→12 顺序执行），每完成一个 Task 停下汇报。**等待你确认本计划后再开始写代码。**
+
+---
+
+## Phase 5 执行记录（2026-09-19，TDD 实现）
+
+按 Task 1→11 顺序落地，每个 Task 先写测试、跑出不通过、再实现、再转绿、单独提交。
+
+```
+js/games/  1154 行（storage 88 / pong 273 / renderer 108 / input 66 / session 215 / host 267 / arcade 110）
+tests/     1643 行（12 个新测试文件）
+最终：node --test tests/*.test.js → # tests 208  # pass 208  # fail 0
+（既有 97 + 新增 111：纯逻辑 92 + host 结构 6 + 集成 4 + 注册 3 + sound 2 + 适配器 4）
+```
+
+### 执行中被真实测试抓出的 3 个缺陷（都是单测盲区）
+
+| # | 缺陷 | 根因 | 抓到它的东西 |
+|---|---|---|---|
+| B9 | `createHost({ mount })` 的挂载点参数被同名的 `function mount()` **声明提升覆盖** ⇒ `host.mount()` 必定 TypeError | 参数与函数同名；inert-host 测试只走 `mount = null` 分支，恰好绕过 | 端到端烟测 |
+| B10 | 量字宽的隐藏 span 被挂进 `screen`，而 `paint()` 首次重建会 `textContent=''` 把它清掉 ⇒ `cellW` 退化为 8px、列数算错 | 测量节点挂在了会被重建的容器里 | 端到端烟测 |
+| B11 | `pong.createGame()` 返回**纯状态对象**，而 session 需要**带方法的游戏对象** ⇒ `game.render is not a function` | 两个单元测试各自用桩，接缝无人跑 | 端到端烟测 |
+
+修法：参数改名 `container`；测量节点挂到窗口根节点并显式拷贝 font、`line-height` 兼容倍数型；拆成 `createState`（纯）/`createGame`（适配器）。
+
+### B12 我的验证工具也曾说谎（记录在案）
+
+第一版 DOM 桩没模拟两件真实语义：`textContent=''` 会清空子节点、`append(fragment)` 是把**子节点**搬进父节点。于是：
+
+- 烟测误报「只渲染了 2 行」；
+- 更糟的是，据此写的 host 单测是**假阳性**（两次 paint 恰好凑出 `childNodes.length === 2`，行文本落在 fragment 桩上）。
+
+修正桩的保真度后，单测与烟测才真正在测行。**结论：桩的保真度本身要被怀疑。**
+
+### 新增的第 12 个测试文件
+
+`tests/games-integration.test.js`（4 条）：全链路 mount → 菜单 → 对局 → ESC 清理；每帧字符白名单；连续 3 次会话零残留；visibility 暂停清键。
+计划原本写「host 的 DOM 部分不写单测」，**这是被证据推翻的偏差**：轻量 DOM 桩抓住了 3 个真 bug，值得长期守着。交互细节仍必须在浏览器里手工验收。
+
+### 仍未验证（必须浏览器手工过）
+
+Task 10 的真实布局/拖拽/缩放/最大化、焦点陷阱与 Tab、`ResizeObserver`、触摸按钮、`≤640px` 全屏、四主题配色、音效听感、Task 12 的完整验收清单。
