@@ -5,8 +5,10 @@
 // ============================================================
 
 export const RESIZE_BORDER = 6;
-export const MIN_W = 420;
-export const MIN_H = 300;
+// 最小尺寸需至少完整显示启动 logo（figlet 6 行 × 52 字符）：
+// 52 × 0.6em(@14px) ≈ 437px + output padding 32px + border ≈ 471px。
+export const MIN_W = 480;
+export const MIN_H = 320;
 
 const CURSOR = {
   n: 'ns-resize', s: 'ns-resize', e: 'ew-resize', w: 'ew-resize',

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { hitDir, resizeRect, clampPosition, RESIZE_BORDER } from '../js/windowing.js';
+import { hitDir, resizeRect, clampPosition, RESIZE_BORDER, MIN_W, MIN_H } from '../js/windowing.js';
+import { LOGO } from '../js/content.js';
 
 // A 500x400 window at (100,100) — above the 420x300 minimum.
 const R = { left: 100, top: 100, right: 600, bottom: 500, width: 500, height: 400 };
@@ -56,4 +57,17 @@ test('clampPosition: keeps window on screen', () => {
   const vp = { width: 1000, height: 800 };
   assert.deepEqual(clampPosition({ left: -9999, top: -50, w: 400, h: 300 }, vp), { left: -280, top: 0 });
   assert.deepEqual(clampPosition({ left: 9999, top: 9999, w: 400, h: 300 }, vp), { left: 880, top: 760 });
+});
+
+test('MIN_W fits the widest logo line (with output padding + border)', () => {
+  const maxLen = Math.max(...LOGO.split('\n').map((l) => l.length));
+  const charW = 0.6 * 14; // JetBrains Mono advance width at 14px
+  const needed = Math.ceil(maxLen * charW) + 32 + 2;
+  assert.ok(MIN_W >= needed, `MIN_W=${MIN_W} < ${needed}`);
+});
+
+test('MIN_H fits the logo plus the window chrome', () => {
+  const logoLines = LOGO.split('\n').filter((l) => l.length > 0).length;
+  const needed = Math.ceil(logoLines * 1.6 * 14) + 36 /*statusbar*/ + 43 /*input*/ + 32 /*padding*/;
+  assert.ok(MIN_H >= needed, `MIN_H=${MIN_H} < ${needed}`);
 });
