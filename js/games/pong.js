@@ -201,3 +201,9 @@ export function statusLine(state) {
   if (state.mode === 'two') return '[W/S] P1   [Up/Down] P2   [M] Mute   [ESC] Quit';
   return '[W/S] Move   [M] Mute   [ESC] Quit';
 }
+
+export function setDifficulty(state, name) {
+  if (name !== 'easy' && name !== 'normal') return false;
+  state.difficulty = name;
+  return true;
+}
