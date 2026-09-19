@@ -1,7 +1,7 @@
 // tests/games-pong-render.test.js
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { C, createGame, render } from '../js/games/pong.js';
+import { C, createState, createGame, render } from '../js/games/pong.js';
 import { buildFrame, withinWhitelist, diffRows } from '../js/games/renderer.js';
 
 function frame(cols = 60, rows = 20) {
@@ -15,7 +15,7 @@ const countOf = (grid, ch) => grid.join('').split(ch).length - 1;   // 供后续
 // 显式进入对局：phase='menu' 时 render() 走菜单分支直接 return，
 // 不设 phase 的「渲染测试」会空转（数到的是菜单文本里的字符）。
 function playing(score = [0, 0]) {
-  const s = createGame({ rng: () => 0.5 });
+  const s = createState({ rng: () => 0.5 });
   s.phase = 'play';
   s.score = score;
   s.speed = 0.5;
@@ -24,7 +24,7 @@ function playing(score = [0, 0]) {
 }
 
 test('render returns one row per layout row, all whitelisted', () => {
-  const s = createGame({ rng: () => 0.5 });
+  const s = createState({ rng: () => 0.5 });
   const f = frame();
   const rows = render(s, f);
   assert.equal(rows.length, f.layout.rows);
@@ -33,7 +33,7 @@ test('render returns one row per layout row, all whitelisted', () => {
 });
 
 test('render draws the score on the score row', () => {
-  const s = createGame({ rng: () => 0.5 });
+  const s = createState({ rng: () => 0.5 });
   s.score = [7, 5];
   const f = frame();
   const rows = render(s, f);
@@ -81,7 +81,7 @@ test('the ball glyph is the only asterisk on screen (no text collision)', () => 
 });
 
 test('menu phase shows the mode choices and hides the ball', () => {
-  const s = createGame({ rng: () => 0.5 });
+  const s = createState({ rng: () => 0.5 });
   const f = frame();
   const rows = render(s, f);
   const mid = rows.slice(f.layout.fieldTop, f.layout.fieldBottom + 1).join('\n');
@@ -92,7 +92,7 @@ test('menu phase shows the mode choices and hides the ball', () => {
 });
 
 test('gameover phase shows the winner and final score', () => {
-  const s = createGame({ rng: () => 0.5 });
+  const s = createState({ rng: () => 0.5 });
   s.score = [11, 4];
   s.winner = 0;
   s.phase = 'gameover';
@@ -104,7 +104,7 @@ test('gameover phase shows the winner and final score', () => {
 });
 
 test('render is stable: two identical states produce zero diff', () => {
-  const s = createGame({ rng: () => 0.5 });
+  const s = createState({ rng: () => 0.5 });
   const f = frame();
   const a = render(s, f);
   const b = render(s, f);
@@ -112,7 +112,7 @@ test('render is stable: two identical states produce zero diff', () => {
 });
 
 test('render preserves the static frame (only dynamic rows differ)', () => {
-  const s = createGame({ rng: () => 0.5 });
+  const s = createState({ rng: () => 0.5 });
   const f = frame();
   const rows = render(s, f);
   const changed = diffRows(f.staticRows, rows);
@@ -141,4 +141,56 @@ test('render never writes outside the playfield for extreme positions', () => {
       );
     }
   }
+});
+
+// ---------------------------------------------------------------------------
+// 会话侧适配器（createGame）—— 集成接缝。
+// session 测试用假 game、arcade 测试用假 session，谁都不会暴露
+// “纯状态对象 vs 带方法的游戏对象”错配。这里直接锁死契约。
+// ---------------------------------------------------------------------------
+
+test('createGame returns the session-facing object, not a bare state', () => {
+  const g = createGame({ rng: () => 0.5 });
+  assert.ok(g.state, 'must expose .state');
+  assert.equal(g.state.phase, 'menu');
+  for (const fn of ['update', 'handleKey', 'render', 'statusLine', 'isOver', 'restart', 'resize']) {
+    assert.equal(typeof g[fn], 'function', `missing ${fn}`);
+  }
+});
+
+test('the adapter keeps state live so the session can read events for sound', () => {
+  const g = createGame({ rng: () => 0.5 });
+  g.handleKey('1');
+  g.update(C.SERVE_DELAY + 0.001, {});
+  assert.equal(g.state.phase, 'play');
+  assert.ok(Array.isArray(g.state.events));
+  g.state.ball.y = 0.02;
+  g.state.vel = { x: 0.001, y: -1 };
+  g.update(1 / 30, {});
+  assert.ok(g.state.events.includes('wall'), 'events must surface for the sfx layer');
+});
+
+test('the adapter renders through the shared frame and resize never resets state', () => {
+  const g = createGame({ rng: () => 0.5 });
+  g.handleKey('1');
+  g.update(C.SERVE_DELAY + 0.001, {});
+  const f = buildFrame({ title: 'T', cols: 60, rows: 20 });
+  const rows = g.render(f);
+  assert.equal(rows.length, f.layout.rows);
+  const snap = { x: g.state.ball.x, y: g.state.ball.y, s: g.state.score.slice() };
+  g.resize({ cols: 100, rows: 30 });
+  assert.deepEqual({ x: g.state.ball.x, y: g.state.ball.y, s: g.state.score.slice() }, snap);
+});
+
+test('the adapter restart / isOver / statusLine delegate to the pure functions', () => {
+  const g = createGame({ rng: () => 0.5 });
+  g.handleKey('1');
+  g.state.score = [11, 3];
+  g.state.winner = 0;
+  g.state.phase = 'gameover';
+  assert.equal(g.isOver(), true);
+  assert.ok(g.statusLine().includes('Space'));
+  g.restart();
+  assert.equal(g.isOver(), false);
+  assert.deepEqual(g.state.score, [0, 0]);
 });

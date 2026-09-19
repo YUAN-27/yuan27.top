@@ -1,10 +1,10 @@
 // tests/games-pong.test.js
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { C, meta, createGame, update, isOver, restart, statusLine, handleKey } from '../js/games/pong.js';
+import { C, meta, createState, update, isOver, restart, statusLine, handleKey } from '../js/games/pong.js';
 
 const fixedRng = (v = 0.5) => () => v;
-const newGame = (opts = {}) => createGame({ rng: fixedRng(), ...opts });
+const newGame = (opts = {}) => createState({ rng: fixedRng(), ...opts });
 const speed = (s) => Math.hypot(s.vel.x, s.vel.y);
 
 test('meta exposes id/title/summary', () => {

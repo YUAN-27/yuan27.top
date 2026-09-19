@@ -1,10 +1,10 @@
 // tests/games-pong-ai.test.js
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { C, createGame, update, setDifficulty } from '../js/games/pong.js';
+import { C, createState, update, setDifficulty } from '../js/games/pong.js';
 
 const playing = () => {
-  const s = createGame({ rng: () => 0.5 });
+  const s = createState({ rng: () => 0.5 });
   s.phase = 'play';
   s.mode = 'single';
   s.speed = C.SPEED0;
@@ -56,7 +56,7 @@ test('easy is slower than normal', () => {
 });
 
 test('setDifficulty validates input', () => {
-  const s = createGame();
+  const s = createState();
   assert.equal(setDifficulty(s, 'easy'), true);
   assert.equal(s.difficulty, 'easy');
   assert.equal(setDifficulty(s, 'nope'), false);

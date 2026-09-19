@@ -31,7 +31,7 @@ function makePaddle(i) {
   return { x: C.PADDLE_X[i], w: C.PADDLE_W, y: 0.5 - C.PADDLE_H / 2, h: C.PADDLE_H, vy: 0 };
 }
 
-export function createGame({ rng = Math.random, difficulty = 'normal' } = {}) {
+export function createState({ rng = Math.random, difficulty = 'normal' } = {}) {
   return {
     phase: 'menu',          // menu | serve | play | gameover
     mode: 'single',         // single | two
@@ -270,4 +270,25 @@ export function render(state, frame) {
   }
 
   return rows;
+}
+
+// ============================================================
+//  会话侧接口适配（spec §14）：把纯函数 API 包装成 session 需要的对象接口。
+//  session 只认 { state, update, handleKey, render, statusLine, isOver, restart, resize }。
+//  ⚠️ 这个接缝是集成盲区：session 测试用假 game、arcade 测试用假 session，
+//     两者都不会暴露“状态对象 vs 游戏对象”的错配（烟测抓到过一次）。
+// ============================================================
+export function createGame(opts = {}) {
+  const state = createState(opts);
+  return {
+    state,
+    update: (dt, axes) => update(state, dt, axes),
+    handleKey: (key) => handleKey(state, key),
+    render: (frame) => render(state, frame),
+    statusLine: () => statusLine(state),
+    isOver: () => isOver(state),
+    restart: () => restart(state),
+    // 归一化坐标 ⇒ 改尺寸不改模型，resize 是显式的空操作（文档化，而非遗漏）
+    resize: () => {},
+  };
 }
