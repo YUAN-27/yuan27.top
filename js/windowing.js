@@ -151,8 +151,8 @@ export function enableWindow(el, opts = {}) {
     if (!s) return;
     const vp = viewport();
     const g = {
-      w: Math.min(s.w || 900, vp.width),
-      h: Math.min(s.h || 640, vp.height),
+      w: Math.max(minW, Math.min(s.w || 900, vp.width)),
+      h: Math.max(minH, Math.min(s.h || 640, vp.height)),
       left: s.left || 0,
       top: s.top || 0,
     };
