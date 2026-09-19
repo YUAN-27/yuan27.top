@@ -206,7 +206,9 @@ async run(shell, args) {
 - 复用 `enableWindow(gameEl, { handle: header, storageKey: 'yuan27.arcade.window.v1', minW: 420, minH: 260, minLeft: DESKTOP_RAIL_WIDTH, breakpoint: 640, onStateChange })`。
 - **红色关闭按钮 = 退出游戏**：`onStateChange` 检测到 `closed === true` → `session.end('window-closed')`。
 - **不注册进 taskbar**（`taskbar.js` 的单窗口假设不迁就）。
-- 默认几何：`min(760px, 72vw) × min(520px, 64dvh)`，居中；`z-index: calc(var(--z-window) + 10)`（主窗口之上、菜单之下）。`≤640px` 时由既有 CSS 通配规则自动全屏。
+- 默认几何：**由目标网格反推**，不是拍固定像素。`defaultGameGeom()` 以 `GRID_MAX`（120×40）为目标算出所需窗口尺寸，再夹到视口内（留 24px 边距、左边界不侵入图标栏、不低于 `GAME_MIN_W/H`）。实测：1920×1080 → 窗口 1032×747 → 网格 120×40、场地 35 行、挡板 6 格；1024×768 → 810×744 → 93×39；820×640 → 606×616 → 69×32。
+
+`z-index: calc(var(--z-window) + 10)`（主窗口之上、菜单之下）。`≤640px` 时**必须清掉内联几何**（`clearInlineGeom()`），否则内联样式会覆盖既有 CSS 的全屏通配规则。几何持久化 key：`yuan27.arcade.window.v2`。
 
 ---
 
@@ -628,6 +630,10 @@ export function createGame({ cols, rows, rng, storage, frame }) {
 | B13 | **用红灯关掉游戏后，再也无法启动** `arcade pong`（浏览器实测 `Cannot read properties of null (reading 'addEventListener')`） | `enableWindow` 把 `closed`/`min` 与几何一起持久化；红灯=退出游戏 ⇒ 写入 `closed:true`；下次启动时 `restoreFromState()` **同步** `close()` → `onStateChange` → `onClose` → `end()` → `destroy()` → `teardown()` 把 `root` 置空，而 `mount()` 仍在继续执行 | 复现脚本（预置 `closed:true` + 真 session）+ 作者浏览器实测 |
 
 **B13 修法**：① `sanitizeStoredWindowState()` —— 游戏窗口只继承几何，**永不**继承 `closed`/`min`（每次 `arcade` 都必须以打开状态出现）；② `mount()` 在 `enableWindow` 之后立刻检查 `if (!root || !screen) return`，会话若已在初始化期间结束就干净退出。回归测试 4 条（sanitizer 纯函数 / 损坏数据 / 带 `closed` 状态挂载 / 端到端二次启动）。
+
+| B14 | **默认窗口尺寸不对**：固定 760×520 ⇒ 屏幕盒 738×430 ⇒ 网格仅 87×25、场地 20 行、挡板 4 格（大屏上又小又扁）；且内联几何会**覆盖** `≤640px` 全屏规则 ⇒ 移动端从未真正全屏 | 默认值拍的是固定像素，而不是从"游戏需要多大网格"反推；内联样式优先级高于媒体查询 | 作者实测 |
+
+**B14 修法**：`defaultGameGeom()` 从 `GRID_MAX`（120×40）反推窗口尺寸并夹到视口内；桌面端应用、移动端 `clearInlineGeom()`；key 升到 v2（旧几何不再沿用）。
 
 **教训**：桩与桩之间的接缝是盲区 ⇒ 必须有一条真正把全链路串起来的测试；且 DOM 桩的保真度本身要被怀疑；**复用别人的持久化时要问"它到底存了什么"**（几何 vs 生命周期状态）。
 
