@@ -14,6 +14,21 @@ __   ___   _   _    _   _ ____ _____ _
                                              |_|    
 `;
 
+// 给启动 logo 加 ASCII 边框（╔═╗ 风格），返回逐行数组。
+// 纯函数，行宽对齐；保持“逐行打印”的启动效果。
+export function frameLogo(text, padX = 2) {
+  const lines = String(text).split('\n').filter((l) => l.length > 0);
+  if (lines.length === 0) return [];
+  const width = Math.max(...lines.map((l) => l.length));
+  const pad = ' '.repeat(padX);
+  const bar = '═'.repeat(width + padX * 2);
+  return [
+    '╔' + bar + '╗',
+    ...lines.map((l) => '║' + pad + l.padEnd(width, ' ') + pad + '║'),
+    '╚' + bar + '╝',
+  ];
+}
+
 // 启动流程（2 秒内、可跳过）
 export const BOOT_LINES = [
   'Initializing YUAN27...',

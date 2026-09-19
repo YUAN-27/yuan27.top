@@ -30,6 +30,7 @@
   --success: #3fb950;
   --cursor: #e6e6e6;
   --selection: rgba(88, 166, 255, 0.30);
+  --logo-depth: #2f5d9e;
 }
 
 [data-theme="light"] {
@@ -46,6 +47,7 @@
   --success: #1a7f37;
   --cursor: #1f2328;
   --selection: rgba(9, 105, 218, 0.25);
+  --logo-depth: #b9c2cc;
 }
 
 [data-theme="matrix"] {
@@ -62,6 +64,7 @@
   --success: #00ff41;
   --cursor: #00ff41;
   --selection: rgba(0, 255, 65, 0.30);
+  --logo-depth: #0a7d24;
 }
 
 [data-theme="dracula"] {
@@ -78,4 +81,5 @@
   --success: #50fa7b;
   --cursor: #f8f8f2;
   --selection: rgba(139, 233, 253, 0.30);
+  --logo-depth: #4a5a96;
 }

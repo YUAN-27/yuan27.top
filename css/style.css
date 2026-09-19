@@ -134,7 +134,12 @@ body[data-bg="gradient"] {
 .line-muted { color: var(--text-muted); }
 .muted { color: var(--text-muted); }
 
-.logo { white-space: pre; color: var(--text); }
+.logo {
+  white-space: pre;
+  color: var(--text);
+  /* 立体感：向右下两层挤出投影 */
+  text-shadow: 1px 1px 0 var(--logo-depth), 2px 2px 0 var(--logo-depth);
+}
 
 .output pre {
   font-family: inherit;
@@ -313,7 +318,7 @@ body.no-select { user-select: none; }
     box-shadow: none;
   }
   .output { padding: 12px; }
-  .logo { font-size: 10px; }
+  .logo { font-size: min(10px, calc((100vw - 24px) / 36)); }
   .input-line {
     padding: 8px 12px;
     padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));

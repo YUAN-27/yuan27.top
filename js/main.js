@@ -4,7 +4,7 @@ import { History } from './history.js';
 import { complete } from './completion.js';
 import { initTheme } from './themes.js';
 import { resolve as resolvePath } from './fs.js';
-import { LOGO, WELCOME, BOOT_LINES, ENTRIES } from './content.js';
+import { LOGO, WELCOME, BOOT_LINES, ENTRIES, frameLogo } from './content.js';
 import { initDesktop, makeOpener, DESKTOP_RAIL_WIDTH } from './desktop.js';
 import { commands, commandNames, suggestCommand } from './commands.js';
 import { parse } from './parser.js';
@@ -167,7 +167,7 @@ async function boot() {
   initTheme();
   startClock();
 
-  const logoLines = LOGO.split('\n').filter((l) => l.length > 0);
+  const logoLines = frameLogo(LOGO);
   // 老访客不再播放慢速动画；点击/按键可跳过
   const repeat = (() => { try { return !!localStorage.getItem(VISITED_KEY); } catch { return false; } })();
   const d = (ms) => (repeat || skipBoot ? 0 : ms);
